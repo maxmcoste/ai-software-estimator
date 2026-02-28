@@ -348,7 +348,10 @@ RULES:
         if block.type == "text":
             reply_text += block.text
         elif block.type == "tool_use":
-            updated_estimate = EstimateResult.model_validate(block.input)
+            try:
+                updated_estimate = EstimateResult.model_validate(block.input)
+            except Exception as exc:
+                logger.warning("Chat tool call returned an incomplete estimate, ignoring: %s", exc)
 
     # If only a tool call was returned (no prose), generate a diff summary
     if updated_estimate is not None and not reply_text.strip():
