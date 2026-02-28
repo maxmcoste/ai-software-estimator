@@ -27,8 +27,8 @@
               <button type="button" class="tab-btn" data-tab="paste">Paste text</button>
             </div>
             <div id="tab-upload" class="tab-panel active">
-              <label for="requirements_file" class="file-label">
-                <span>Choose Markdown file…</span>
+              <label class="file-pick-btn">
+                Choose Markdown file…
                 <input type="file" id="requirements_file" name="requirements_file" accept=".md,.txt,.markdown" />
               </label>
               <span id="req-file-name" class="file-name"></span>
@@ -47,8 +47,8 @@
               Use default model (Core &amp; Satellites)
             </label>
             <div id="custom-model-panel" class="hidden">
-              <label for="estimation_model_file" class="file-label">
-                <span>Upload custom model (.md)…</span>
+              <label class="file-pick-btn">
+                Upload custom model (.md)…
                 <input type="file" id="estimation_model_file" name="estimation_model_file" accept=".md,.txt,.markdown" />
               </label>
               <span id="model-file-name" class="file-name"></span>
@@ -93,8 +93,22 @@
       <!-- PROGRESS -->
       <section id="progress-section" class="hidden">
         <div class="progress-card">
-          <div class="spinner"></div>
-          <p id="progress-message">Starting…</p>
+          <!-- Upload phase -->
+          <div id="upload-progress-wrap">
+            <p class="upload-label">Uploading… <span id="upload-pct">0%</span></p>
+            <div class="upload-bar-track">
+              <div id="upload-bar-fill"></div>
+            </div>
+          </div>
+          <!-- Estimation phase -->
+          <div id="estimation-progress-wrap" class="hidden">
+            <div class="progress-header">
+              <div class="spinner"></div>
+              <p id="progress-message">Starting…</p>
+              <span id="elapsed-timer" class="elapsed-timer">0:00</span>
+            </div>
+            <div id="activity-log" class="activity-log"></div>
+          </div>
         </div>
       </section>
 

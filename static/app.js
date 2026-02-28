@@ -3,18 +3,22 @@
   'use strict';
 
   // ── DOM references ──────────────────────────────────────────────────────
-  const form         = document.getElementById('estimate-form');
-  const submitBtn    = document.getElementById('submit-btn');
-  const formSection  = document.getElementById('form-section');
-  const progressSec  = document.getElementById('progress-section');
-  const progressMsg  = document.getElementById('progress-message');
-  const resultSec    = document.getElementById('result-section');
-  const reportDiv    = document.getElementById('report-content');
-  const downloadBtn  = document.getElementById('download-btn');
-  const newEstBtn    = document.getElementById('new-estimate-btn');
-  const errorBanner  = document.getElementById('error-banner');
-  const errorMsg     = document.getElementById('error-message');
-  const dismissErr   = document.getElementById('dismiss-error');
+  const form                  = document.getElementById('estimate-form');
+  const submitBtn             = document.getElementById('submit-btn');
+  const formSection           = document.getElementById('form-section');
+  const progressSec           = document.getElementById('progress-section');
+  const progressMsg           = document.getElementById('progress-message');
+  const resultSec             = document.getElementById('result-section');
+  const reportDiv             = document.getElementById('report-content');
+  const downloadBtn           = document.getElementById('download-btn');
+  const newEstBtn             = document.getElementById('new-estimate-btn');
+  const errorBanner           = document.getElementById('error-banner');
+  const errorMsg              = document.getElementById('error-message');
+  const dismissErr            = document.getElementById('dismiss-error');
+  const uploadProgressWrap     = document.getElementById('upload-progress-wrap');
+  const estimationProgressWrap = document.getElementById('estimation-progress-wrap');
+  const uploadPct              = document.getElementById('upload-pct');
+  const uploadBarFill          = document.getElementById('upload-bar-fill');
 
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -26,7 +30,7 @@
     });
   });
 
-  // File name display
+  // File name display on selection
   document.getElementById('requirements_file').addEventListener('change', e => {
     document.getElementById('req-file-name').textContent = e.target.files[0]?.name ?? '';
   });
@@ -46,9 +50,12 @@
   newEstBtn.addEventListener('click', resetUI);
 
   // ── State ───────────────────────────────────────────────────────────────
-  let currentJobId = null;
-  let pollTimer    = null;
-  let rawMarkdown  = '';
+  let currentJobId    = null;
+  let pollTimer       = null;
+  let elapsedTimer    = null;
+  let elapsedSeconds  = 0;
+  let lastLogMessage  = null;
+  let rawMarkdown     = '';
 
   // ── UI helpers ──────────────────────────────────────────────────────────
   function showError(msg) {
@@ -58,18 +65,78 @@
 
   function resetUI() {
     clearInterval(pollTimer);
-    currentJobId = null;
-    rawMarkdown  = '';
+    clearInterval(elapsedTimer);
+    currentJobId   = null;
+    rawMarkdown    = '';
+    elapsedSeconds = 0;
+    lastLogMessage = null;
     formSection.classList.remove('hidden');
     progressSec.classList.add('hidden');
     resultSec.classList.add('hidden');
     errorBanner.classList.add('hidden');
     submitBtn.disabled = false;
     reportDiv.innerHTML = '';
+    uploadPct.textContent = '0%';
+    uploadBarFill.style.width = '0%';
+    uploadProgressWrap.classList.remove('hidden');
+    estimationProgressWrap.classList.add('hidden');
+    document.getElementById('activity-log').innerHTML = '';
+    document.getElementById('elapsed-timer').textContent = '0:00';
+  }
+
+  // ── Timer & log helpers ──────────────────────────────────────────────────
+  function startElapsedTimer() {
+    elapsedSeconds = 0;
+    const el = document.getElementById('elapsed-timer');
+    elapsedTimer = setInterval(() => {
+      elapsedSeconds++;
+      const m = Math.floor(elapsedSeconds / 60);
+      const s = String(elapsedSeconds % 60).padStart(2, '0');
+      el.textContent = `${m}:${s}`;
+    }, 1000);
+  }
+
+  function appendLog(msg, type = '') {
+    const log = document.getElementById('activity-log');
+    const m   = Math.floor(elapsedSeconds / 60);
+    const s   = String(elapsedSeconds % 60).padStart(2, '0');
+    const entry = document.createElement('div');
+    entry.className = 'log-entry' + (type ? ' log-' + type : '');
+    entry.innerHTML = `<span class="log-time">${m}:${s}</span><span class="log-msg">${msg}</span>`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function showUploadProgress() {
+    uploadProgressWrap.classList.remove('hidden');
+    estimationProgressWrap.classList.add('hidden');
+    uploadPct.textContent = '0%';
+    uploadBarFill.style.width = '0%';
+    formSection.classList.add('hidden');
+    progressSec.classList.remove('hidden');
+    resultSec.classList.add('hidden');
+  }
+
+  function switchToEstimationProgress(msg) {
+    uploadProgressWrap.classList.add('hidden');
+    estimationProgressWrap.classList.remove('hidden');
+    progressMsg.textContent = msg;
+    startElapsedTimer();
+    appendLog(msg);
+    lastLogMessage = msg;
   }
 
   function showProgress(msg) {
     progressMsg.textContent = msg;
+    // Only append to log when message actually changes
+    if (msg !== lastLogMessage) {
+      const isDone  = msg.toLowerCase().includes('ready');
+      const isError = msg.toLowerCase().includes('fail') || msg.toLowerCase().includes('error');
+      appendLog(msg, isDone ? 'done' : isError ? 'error' : '');
+      lastLogMessage = msg;
+    }
+    uploadProgressWrap.classList.add('hidden');
+    estimationProgressWrap.classList.remove('hidden');
     formSection.classList.add('hidden');
     progressSec.classList.remove('hidden');
     resultSec.classList.add('hidden');
@@ -101,7 +168,7 @@
     }
 
     submitBtn.disabled = true;
-    showProgress('Submitting request…');
+    showUploadProgress();
 
     const fd = new FormData();
 
@@ -127,21 +194,54 @@
     fd.append('manday_cost', mandayCost);
     fd.append('currency',    currency);
 
-    try {
-      const res = await fetch('/api/estimate', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail ?? `HTTP ${res.status}`);
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        uploadPct.textContent = pct + '%';
+        uploadBarFill.style.width = pct + '%';
       }
-      const { job_id } = await res.json();
-      currentJobId = job_id;
-      startPolling();
-    } catch (err) {
-      showError(err.message);
+    });
+
+    xhr.upload.addEventListener('load', () => {
+      // Ensure bar shows 100% before switching (fast uploads may skip progress events)
+      uploadPct.textContent = '100%';
+      uploadBarFill.style.width = '100%';
+      setTimeout(() => switchToEstimationProgress('Request received — starting estimation…'), 300);
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const { job_id } = JSON.parse(xhr.responseText);
+          currentJobId = job_id;
+          startPolling();
+        } catch {
+          showError('Unexpected server response.');
+          formSection.classList.remove('hidden');
+          progressSec.classList.add('hidden');
+          submitBtn.disabled = false;
+        }
+      } else {
+        let detail = `HTTP ${xhr.status}`;
+        try { detail = JSON.parse(xhr.responseText).detail ?? detail; } catch { /* ignore */ }
+        showError(detail);
+        formSection.classList.remove('hidden');
+        progressSec.classList.add('hidden');
+        submitBtn.disabled = false;
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      showError('Network error — could not reach the server.');
       formSection.classList.remove('hidden');
       progressSec.classList.add('hidden');
       submitBtn.disabled = false;
-    }
+    });
+
+    xhr.open('POST', '/api/estimate');
+    xhr.send(fd);
   });
 
   // ── Polling ─────────────────────────────────────────────────────────────
