@@ -218,3 +218,88 @@ def call_claude(
                 time.sleep(wait)
 
     raise RuntimeError(f"Claude API failed after {max_retries} attempts: {last_error}") from last_error
+
+
+# ── Chat refinement ────────────────────────────────────────────────────────────
+
+def _diff_estimates(old: EstimateResult, new: EstimateResult) -> str:
+    lines = []
+    if abs(old.core.total_mandays - new.core.total_mandays) > 0.01:
+        lines.append(f"- **Core**: {old.core.total_mandays:.1f} → {new.core.total_mandays:.1f} mandays")
+
+    sat_pairs = [
+        ("PM & Orchestration",       old.satellites.pm_orchestration,    new.satellites.pm_orchestration),
+        ("Solution Architecture",    old.satellites.solution_architecture, new.satellites.solution_architecture),
+        ("Cybersecurity",            old.satellites.cybersecurity,        new.satellites.cybersecurity),
+        ("Digital Experience",       old.satellites.digital_experience,   new.satellites.digital_experience),
+        ("Quality Assurance",        old.satellites.quality_assurance,    new.satellites.quality_assurance),
+    ]
+    for name, o, n in sat_pairs:
+        if o.active != n.active:
+            lines.append(f"- **{name}**: {'activated' if n.active else 'deactivated'}")
+        elif o.active and n.active and abs(o.total_mandays - n.total_mandays) > 0.01:
+            lines.append(f"- **{name}**: {o.total_mandays:.1f} → {n.total_mandays:.1f} mandays")
+
+    if not lines:
+        return "I've applied the requested changes to the estimate."
+    return "Done. Here's what changed:\n\n" + "\n".join(lines)
+
+
+def chat_with_claude(
+    api_key: str,
+    message: str,
+    chat_history: list[dict],
+    current_estimate: EstimateResult,
+    claude_model: str = "claude-opus-4-6",
+) -> tuple[str, EstimateResult | None]:
+    """
+    Returns (reply_text, updated_estimate_or_None).
+    chat_history is a list of {"role": "user"|"assistant", "content": str}.
+    Uses tool_choice=auto: Claude decides whether to update the estimate or just reply.
+    """
+    client = Anthropic(api_key=api_key)
+
+    system = f"""You are an expert software estimation assistant helping the user refine a project estimate built on the Core & Satellites model.
+
+The user may ask you to:
+- Explain any estimation choice or assumption
+- Override specific manday values for entities, integrations, or satellites
+- Add/remove data entities, API integrations, or SPIKEs
+- Activate or deactivate satellite services
+- Change the scalability tier
+
+RULES:
+- When the user requests a CHANGE: call the `produce_estimate` tool with the COMPLETE updated estimate (all fields). Recompute base_fcu_mandays and total_mandays correctly after any change.
+- When the user asks a QUESTION or wants EXPLANATION: reply with plain text — do NOT call the tool.
+- Be concise and precise.
+
+## Current Estimate
+```json
+{current_estimate.model_dump_json(indent=2)}
+```"""
+
+    messages = list(chat_history) + [{"role": "user", "content": message}]
+
+    response = client.messages.create(
+        model=claude_model,
+        max_tokens=4096,
+        system=system,
+        tools=[PRODUCE_ESTIMATE_TOOL],
+        tool_choice={"type": "auto"},
+        messages=messages,
+    )
+
+    reply_text = ""
+    updated_estimate: EstimateResult | None = None
+
+    for block in response.content:
+        if block.type == "text":
+            reply_text += block.text
+        elif block.type == "tool_use":
+            updated_estimate = EstimateResult.model_validate(block.input)
+
+    # If only a tool call was returned (no prose), generate a diff summary
+    if updated_estimate is not None and not reply_text.strip():
+        reply_text = _diff_estimates(current_estimate, updated_estimate)
+
+    return reply_text.strip(), updated_estimate

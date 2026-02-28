@@ -20,6 +20,13 @@ class Job:
     progress_message: str = "Waiting to start…"
     report_path: Optional[Path] = None
     error_detail: Optional[str] = None
+    # Populated when done — used by chat and re-run endpoints
+    estimate_result: Optional[EstimateResult] = None
+    financials: Optional[FinancialSummary] = None
+    requirements_md: str = ""
+    model_md: str = ""
+    repo_summary: Optional[str] = None
+    chat_history: list = field(default_factory=list)
 
 
 def create_job() -> Job:
@@ -86,6 +93,7 @@ def run_estimation(
     currency: str,
     reports_dir: Path,
     api_key: str,
+    cached_repo_summary: str | None = None,   # skip GitHub fetch when re-running
 ) -> None:
     """Synchronous estimation runner — called inside a BackgroundTasks thread."""
     from app.core import claude_client, github_client, report_generator
@@ -93,10 +101,10 @@ def run_estimation(
     try:
         update_job(job_id, status="running", progress_message="Starting estimation…")
 
-        # Optional GitHub fetch
-        repo_summary: str | None = None
+        # Optional GitHub fetch (skip if a cached summary is provided)
+        repo_summary: str | None = cached_repo_summary
         repo_warning: str = ""
-        if github_url:
+        if repo_summary is None and github_url:
             update_job(job_id, progress_message="Fetching GitHub repository…")
             repo_summary, repo_warning = github_client.fetch_repo_summary(github_url, github_token)
             if repo_warning:
@@ -126,7 +134,17 @@ def run_estimation(
             github_warning=repo_warning,
         )
 
-        update_job(job_id, status="done", progress_message="Report ready.", report_path=report_path)
+        update_job(
+            job_id,
+            status="done",
+            progress_message="Report ready.",
+            report_path=report_path,
+            estimate_result=result,
+            financials=financials,
+            requirements_md=requirements_md,
+            model_md=model_md,
+            repo_summary=repo_summary,
+        )
         logger.info("Job %s completed successfully.", job_id)
 
     except Exception as exc:

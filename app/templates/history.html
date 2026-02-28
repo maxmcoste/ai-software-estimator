@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estimate History</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <nav class="topnav">
+    <span class="topnav-brand">AI Estimator</span>
+    <div class="topnav-links">
+      <a href="/" class="topnav-link">New Estimate</a>
+      <a href="/history" class="topnav-link active">History</a>
+    </div>
+  </nav>
+
+  <div class="container wide">
+
+    <!-- LIST VIEW -->
+    <div id="list-view">
+      <div class="history-header">
+        <h1>Saved Estimates</h1>
+        <a href="/" class="btn-primary history-new-btn">+ New Estimate</a>
+      </div>
+
+      <div id="saves-grid" class="saves-grid">
+        <!-- Cards injected by JS -->
+      </div>
+
+      <div id="empty-state" class="empty-state hidden">
+        <p>No saved estimates yet.</p>
+        <a href="/" class="btn-primary">Create your first estimate</a>
+      </div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div id="detail-view" class="hidden">
+      <div class="detail-toolbar">
+        <button id="back-btn" class="btn-outline">← Back to list</button>
+        <div class="detail-actions">
+          <span id="detail-status-badge" class="status-badge"></span>
+          <button id="detail-download-btn" class="btn-secondary">Download .md</button>
+          <button id="detail-finalize-btn" class="btn-finalize">Finalize</button>
+          <button id="detail-delete-btn" class="btn-danger">Delete</button>
+        </div>
+      </div>
+
+      <div class="detail-meta">
+        <h2 id="detail-name"></h2>
+        <span id="detail-dates" class="detail-dates"></span>
+      </div>
+
+      <div id="detail-report" class="markdown-body"></div>
+    </div>
+
+  </div>
+
+  <!-- Confirm modal -->
+  <div id="confirm-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <p id="confirm-message"></p>
+      <div class="modal-actions">
+        <button id="confirm-yes" class="btn-primary">Confirm</button>
+        <button id="confirm-no" class="btn-outline">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/history.js"></script>
+</body>
+</html>

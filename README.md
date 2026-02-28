@@ -1,51 +1,126 @@
 # AI Software Estimator
 
-An AI-powered web application that estimates software projects using the **Core & Satellites** model and the Claude API. Upload your requirements, get a detailed manday + cost breakdown in seconds.
+An AI-powered web application that produces detailed software project estimates using the **Core & Satellites** model and the Anthropic Claude API. Submit a requirements document, optionally enrich the analysis with a GitHub repository, and receive a structured breakdown of mandays and costs — split across functional development and five governance satellites.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-green)
 ![Claude](https://img.shields.io/badge/Claude-claude--opus--4--6-purple)
+![License](https://img.shields.io/badge/license-MIT-gray)
+
+---
+
+## Table of Contents
+
+1. [Features](#features)
+2. [The Core & Satellites Model](#the-core--satellites-model)
+3. [Project Structure](#project-structure)
+4. [Getting Started](#getting-started)
+5. [User Workflows](#user-workflows)
+6. [AI Architecture](#ai-architecture)
+7. [API Reference](#api-reference)
+8. [Data Persistence](#data-persistence)
+9. [Configuration](#configuration)
+10. [Requirements](#requirements)
 
 ---
 
 ## Features
 
-- **Structured estimates** — Core (FCU) + 5 Satellites: PM, Architecture, Security, UX, QA
-- **GitHub analysis** — optionally point to a repo so Claude can distinguish existing vs. new work
-- **Custom model support** — upload your own estimation model `.md` file to override the default
-- **Financial breakdown** — configurable manday rate and currency
-- **Downloadable Markdown report** — ready to attach to a proposal
-- **Dark-themed single-page UI** — no page reloads, live progress polling
+| Feature | Description |
+|:---|:---|
+| **Structured estimation** | Core (FCU) + 5 Satellites, each with independent metrics. Satellites are only activated when genuinely justified by the project. |
+| **GitHub codebase analysis** | Point to any public or private repo — the app fetches the file tree, reads source and config files (up to 80 k chars), and passes the summary to Claude so it can distinguish existing from new work. |
+| **Custom estimation model** | Override the built-in model by uploading any `.md` file. Useful for client-specific methodologies or translated versions of the model. |
+| **Financial breakdown** | Configurable manday rate and currency (EUR, USD, GBP, CHF). All costs are computed as `mandays × rate` after the AI returns its structured output. |
+| **AI chat refinement** | After an estimate is generated, a chat panel lets you ask Claude to explain any choice or override specific values. The report refreshes live when changes are applied. |
+| **Re-run with new model** | Upload a different estimation model and re-run the estimation from the results page — GitHub analysis is reused, no re-fetch required. |
+| **Save & History** | Save any estimate as a **draft** and access it later from the History page. Finalize a draft to freeze it permanently. |
+| **Live progress log** | An activity log and elapsed timer keep the user informed throughout the 30–90 second Claude call. |
+| **Downloadable Markdown report** | Every estimate produces a `.md` report with executive summary table, per-satellite detail, and reasoning block. |
 
 ---
 
-## Architecture
+## The Core & Satellites Model
+
+The application implements the **"Core & Satellites" post-GenAI estimation model**, which decouples the cost of *building* (Core) from the cost of *guaranteeing* (Satellites). This reflects the reality that AI-assisted development reduces coding time but does not reduce governance, security, or quality assurance complexity.
+
+### Core — Functional Complexity Units (FCU)
+
+The Core estimate is driven by **functional density**, not hours:
+
+| Driver | Description |
+|:---|:---|
+| **Data Entities** | Each entity requiring CRUD operations is enumerated individually. A simple entity ≈ 1–3 mandays; a complex one ≈ 3–6. |
+| **API Integrations** | Each external integration is listed with direction (inbound / outbound / bidirectional) and complexity (simple / moderate / complex). |
+| **Business Logic** | A flat manday allocation for orchestration, rules, and workflow logic that doesn't map to a single entity. |
+| **Scalability Multiplier** | Low (<1k users/month) = 1.0×, Medium (1k–50k) = 1.3×, High (>50k or critical) = 1.8×. Applied to the base FCU sum. |
+| **SPIKEs** | Fixed add-ons for technology unknowns or legacy integrations requiring R&D investigation. |
+
+**Formula:** `Core Total = (Base FCU × Scalability Multiplier) + Σ SPIKE mandays`
+
+### The Five Satellites
+
+Each satellite is independent of code volume and is only activated when the project genuinely requires it.
+
+| Satellite | Metric | Key Drivers |
+|:---|:---|:---|
+| **PM & Orchestration** | Calendar-Based Service Unit (CBSU) | Project duration, team size, multi-vendor factor |
+| **Solution Architecture & Infra** | Blueprint + ECU + FinOps | Number of external systems, environment complexity, cloud governance |
+| **Cybersecurity & Compliance** | Attack surface + Security Gates | Data sensitivity tier (basic / standard / critical), GDPR/ISO compliance |
+| **Digital Experience (UX/UI)** | User Journey Complexity (UJC) | Flow complexity (linear / transactional / expert), WCAG 2.1 accessibility |
+| **Quality Assurance** | Verification Points × Criticality | Business logic checkpoints, criticality tier (1–3), performance testing |
+
+### Typical Cost Distribution
+
+| Component | Typical Share |
+|:---|:---|
+| Core (AI-Assisted) | 30–40% |
+| Governance Satellites (PM + Architecture) | 25–30% |
+| Quality Satellites (QA + Cybersecurity + DX) | 30–40% |
+
+---
+
+## Project Structure
 
 ```
 Estimate/
 ├── EstimateModel/
-│   └── Modello di Stima.md     # Default Core & Satellites model (Italian)
+│   └── Modello di Stima.md          # Built-in Core & Satellites model (Italian)
+│
 ├── app/
-│   ├── main.py                 # FastAPI app
-│   ├── config.py               # pydantic-settings
-│   ├── dependencies.py         # DI helpers
+│   ├── main.py                      # FastAPI app factory, routes /, /history
+│   ├── config.py                    # pydantic-settings (API keys, paths)
+│   ├── dependencies.py              # Cached get_settings()
+│   │
 │   ├── api/
-│   │   ├── routes.py           # POST /api/estimate · GET /status · GET /report
-│   │   └── schemas.py          # Pydantic request/response models
+│   │   ├── routes.py                # All HTTP endpoints
+│   │   └── schemas.py               # Pydantic request/response models
+│   │
 │   ├── core/
-│   │   ├── claude_client.py    # Anthropic SDK wrapper + tool schema
-│   │   ├── github_client.py    # Repo fetching + context management
-│   │   ├── estimator.py        # Job orchestration (in-memory store)
-│   │   └── report_generator.py # Jinja2 → Markdown report
+│   │   ├── claude_client.py         # Anthropic SDK wrapper, tool schema, chat function
+│   │   ├── github_client.py         # GitHub tree fetch, context truncation
+│   │   ├── estimator.py             # In-memory job store, run_estimation()
+│   │   ├── report_generator.py      # Jinja2 → Markdown report
+│   │   └── saves.py                 # JSON-file persistence for saved estimates
+│   │
 │   ├── models/
-│   │   └── estimate.py         # Pydantic domain models
+│   │   └── estimate.py              # Pydantic domain models (EstimateResult, FinancialSummary…)
+│   │
 │   └── templates/
-│       ├── index.html          # Single-page web UI
-│       └── report_template.md.j2
+│       ├── index.html               # Main estimation page
+│       ├── history.html             # Saved estimates history page
+│       └── report_template.md.j2   # Jinja2 Markdown report template
+│
 ├── static/
-│   ├── style.css
-│   └── app.js
-└── reports/                    # Generated reports (gitignored)
+│   ├── style.css                    # Dark theme (CSS variables, responsive)
+│   ├── app.js                       # Main page: form, XHR upload, polling, chat, save
+│   └── history.js                   # History page: list, detail view, finalize, delete
+│
+├── reports/                         # Generated .md reports — ephemeral, gitignored
+├── saves/                           # Persisted estimates as JSON — gitignored
+├── .env.example
+├── pyproject.toml
+└── requirements.txt
 ```
 
 ---
@@ -66,11 +141,11 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` and set:
+Edit `.env`:
 
 ```env
-ANTHROPIC_API_KEY=sk-ant-...
-GITHUB_TOKEN=ghp_...          # optional, for private repos
+ANTHROPIC_API_KEY=sk-ant-...    # required
+GITHUB_TOKEN=ghp_...            # optional — needed for private repos
 ```
 
 ### 3. Run
@@ -81,52 +156,205 @@ uvicorn app.main:app --reload
 
 Open [http://localhost:8000](http://localhost:8000).
 
+To use a different port:
+
+```bash
+uvicorn app.main:app --reload --port 8080
+```
+
 ---
 
-## How It Works
+## User Workflows
 
-1. **Submit** — upload (or paste) a Markdown requirements document
-2. **Analyze** — Claude reads your requirements + optional GitHub codebase
-3. **Estimate** — Claude calls the `produce_estimate` tool, returning a validated JSON breakdown
-4. **Report** — financial post-processing (mandays × rate) and Jinja2 rendering produce a Markdown report
-5. **Download** — the report is displayed in-page and available as a `.md` download
+### Generating an Estimate
 
-### Core & Satellites Model
+1. **Requirements** — upload a `.md` / `.txt` file or paste the text directly into the form.
+2. **Estimation model** — the built-in Core & Satellites model is used by default. Uncheck "Use default model" to upload a custom `.md` file.
+3. **GitHub repository** — optionally enter a public or private repo URL. For private repos, supply a Personal Access Token.
+4. **Financial parameters** — set the manday rate and currency.
+5. Click **Generate Estimate**.
 
-| Component | What it measures |
+The progress panel shows a live activity log and elapsed timer while Claude works. When complete, the report renders in-page.
+
+### Refining with AI Chat
+
+Once the report is displayed, a **"Refine with AI"** chat panel appears on the right:
+
+- **Ask a question** — "Why is the Core 42 mandays?" — Claude explains the reasoning. The report is unchanged.
+- **Request a change** — "Reduce QA to 5 mandays" or "Deactivate the DX satellite" — Claude calls the `produce_estimate` tool with updated values. The report refreshes live and the chat shows a diff summary (e.g., `QA: 8.0 → 5.0 mandays`).
+
+`Enter` sends a message; `Shift+Enter` inserts a newline.
+
+### Re-running with a Different Model
+
+In the result header, click **Re-run with new model**. Select a new `.md` model file and click **Re-estimate**. The same requirements and GitHub analysis are reused — only the estimation model changes.
+
+### Saving and Managing Estimates
+
+1. Click **Save** in the result header → enter a name → **Save draft**.
+2. Navigate to [http://localhost:8000/history](http://localhost:8000/history) to see all saved estimates.
+3. Click a card to open the full report.
+4. From the detail view:
+   - **Download .md** — saves the report file locally.
+   - **Finalize** — locks the estimate permanently. Finalized estimates cannot be modified or deleted.
+   - **Delete** — removes the draft (not available for finalized estimates).
+
+| Action | Draft | Final |
+|:---|:---:|:---:|
+| View report | ✓ | ✓ |
+| Download .md | ✓ | ✓ |
+| Finalize | ✓ | — |
+| Delete | ✓ | ✗ |
+| Modify (chat / re-run) | active session only | ✗ |
+
+---
+
+## AI Architecture
+
+### Structured Output via Tool Use
+
+Claude is called with `tool_choice={"type":"any"}` for initial estimates, which forces it to call the `produce_estimate` tool and return a fully structured JSON object. This guarantees a parseable, Pydantic-validated response with no free-form prose.
+
+For chat refinements, `tool_choice={"type":"auto"}` is used so Claude can choose between:
+- Responding with plain text (for explanations and questions)
+- Calling `produce_estimate` (for changes), which triggers a full report regeneration
+
+### Prompt Design
+
+**System prompt** (initial estimate):
+- Expert estimator persona with 10 strict rules
+- Enforces complete entity enumeration, correct multiplier application, and SPIKE identification
+- Instructs Claude to use GitHub data to distinguish existing vs. new components
+
+**User prompt** — three delimited sections:
+1. `## ESTIMATION MODEL` — full model markdown verbatim
+2. `## PROJECT REQUIREMENTS` — requirements document
+3. `## CODEBASE ANALYSIS` — (optional) repo summary string
+
+**Chat system prompt**:
+- Always includes the current `EstimateResult` as JSON in the system prompt
+- Instructs Claude to call the tool only for changes, never for questions
+- Conversation history (text only) provides continuity across turns
+
+### GitHub Context Management
+
+| Limit | Value |
 |:---|:---|
-| **Core** | Functional complexity: data entities (CRUD) + API integrations + business logic |
-| **PM & Orchestration** | Calendar-based governance cost, team complexity |
-| **Solution Architecture** | Design blueprints, environment setup, FinOps |
-| **Cybersecurity** | Attack surface, compliance gates (GDPR, ISO…) |
-| **Digital Experience** | User journey complexity, accessibility (WCAG 2.1) |
-| **Quality Assurance** | Verification points, criticality tier, performance tests |
+| Max total characters | 80,000 |
+| Max lines per file | 200 |
+| Priority order | `*.md` → source files → configs |
+| Skipped directories | `node_modules`, `.git`, `dist`, `build`, `vendor`, `__pycache__` |
 
-### Structured Output
+Files exceeding the line cap are truncated with a `[truncated]` marker. If the total cap is reached, a `[Repository summary truncated]` notice is appended. GitHub fetch failures are non-blocking — a warning is added to the report but estimation proceeds.
 
-Claude is forced to call the `produce_estimate` tool via `tool_choice={"type":"any"}`, guaranteeing structured JSON that is validated against Pydantic models before any further processing.
+### Financial Post-Processing
+
+All financial computation happens **after** Claude returns the structured estimate, keeping the AI focused on manday estimation only:
+
+```
+core_cost       = core.total_mandays × manday_rate
+satellite_costs = {sat: sat.total_mandays × manday_rate  for each active satellite}
+grand_mandays   = core.total_mandays + Σ active satellite mandays
+grand_cost      = grand_mandays × manday_rate
+```
+
+### Retry Logic
+
+The initial Claude call retries up to 3 times with exponential backoff (2s, 4s) on API errors or validation failures.
 
 ---
 
 ## API Reference
 
+### Estimation
+
 | Method | Endpoint | Description |
 |:---|:---|:---|
-| `POST` | `/api/estimate` | Submit estimation job (multipart form) |
-| `GET` | `/api/estimate/{job_id}/status` | Poll job status |
-| `GET` | `/api/estimate/{job_id}/report` | Download Markdown report |
+| `POST` | `/api/estimate` | Submit a new estimation job |
+| `GET` | `/api/estimate/{job_id}/status` | Poll job status and progress message |
+| `GET` | `/api/estimate/{job_id}/report` | Download the generated `.md` report |
+| `POST` | `/api/estimate/{job_id}/chat` | Send a chat message to refine the estimate |
+| `POST` | `/api/estimate/{job_id}/rerun` | Re-run with a new estimation model file |
 
-### POST `/api/estimate` form fields
+#### `POST /api/estimate` — multipart form fields
 
 | Field | Type | Required | Default |
-|:---|:---|:---|:---|
-| `requirements_file` | file | ✓ (or text) | — |
-| `requirements_text` | string | ✓ (or file) | — |
+|:---|:---|:---:|:---|
+| `requirements_file` | file | ✓ or text | — |
+| `requirements_text` | string | ✓ or file | — |
 | `estimation_model_file` | file | — | built-in model |
 | `github_url` | string | — | — |
 | `github_token` | string | — | env `GITHUB_TOKEN` |
 | `manday_cost` | number | — | `500` |
 | `currency` | string | — | `EUR` |
+
+#### `POST /api/estimate/{job_id}/chat` — JSON body
+
+```json
+{ "message": "Reduce QA to 5 mandays and deactivate the DX satellite." }
+```
+
+Response includes `reply`, `estimate_updated` (bool), and `report_markdown` (new report if updated).
+
+#### `GET /api/estimate/{job_id}/status` — response
+
+```json
+{ "status": "running", "progress_message": "Calling Claude API — this may take 30–90 seconds…" }
+```
+
+Status values: `pending` → `running` → `done` | `error`
+
+### Saved Estimates
+
+| Method | Endpoint | Description |
+|:---|:---|:---|
+| `POST` | `/api/saves` | Save the current estimate as a draft |
+| `GET` | `/api/saves` | List all saved estimates (summary) |
+| `GET` | `/api/saves/{save_id}` | Get full save detail including report markdown |
+| `POST` | `/api/saves/{save_id}/finalize` | Finalize (lock) a draft |
+| `DELETE` | `/api/saves/{save_id}` | Delete a draft (not allowed for final) |
+
+#### `POST /api/saves` — JSON body
+
+```json
+{ "job_id": "uuid", "name": "CRM Project v1.2" }
+```
+
+---
+
+## Data Persistence
+
+Saves are stored as JSON files in the `saves/` directory (one file per estimate). No database is required.
+
+```json
+{
+  "save_id": "uuid",
+  "name": "CRM Project v1.2",
+  "status": "draft",
+  "created_at": "2026-02-28T10:00:00+00:00",
+  "updated_at": "2026-02-28T11:30:00+00:00",
+  "requirements_md": "...",
+  "model_md": "...",
+  "report_markdown": "...",
+  "estimate_data": { ... },
+  "financials_data": { ... }
+}
+```
+
+`saves/*.json` and `reports/*.md` are gitignored. Both directories are auto-created on first use.
+
+---
+
+## Configuration
+
+All settings are loaded from `.env` via `pydantic-settings`:
+
+| Variable | Required | Default | Description |
+|:---|:---:|:---|:---|
+| `ANTHROPIC_API_KEY` | ✓ | — | Anthropic API key |
+| `GITHUB_TOKEN` | — | `""` | GitHub PAT for private repos |
+| `DEFAULT_MODEL_PATH` | — | `EstimateModel/Modello di Stima.md` | Path to built-in estimation model |
+| `REPORTS_DIR` | — | `reports/` | Directory for generated report files |
 
 ---
 
@@ -134,7 +362,15 @@ Claude is forced to call the `produce_estimate` tool via `tool_choice={"type":"a
 
 - Python 3.11+
 - [Anthropic API key](https://console.anthropic.com/)
-- GitHub token (optional, for private repo analysis)
+- GitHub Personal Access Token (optional — only needed for private repositories)
+
+### Python dependencies
+
+```
+fastapi, uvicorn[standard], anthropic, PyGithub,
+pydantic, pydantic-settings, jinja2,
+python-multipart, markdown2, python-dotenv, httpx
+```
 
 ---
 

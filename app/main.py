@@ -40,3 +40,8 @@ app.include_router(router)
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/history", response_class=HTMLResponse)
+async def history(request: Request):
+    return templates.TemplateResponse("history.html", {"request": request})

@@ -91,7 +91,7 @@ class EstimateResult(BaseModel):
     project_summary: str
     core: CoreEstimate
     satellites: Satellites
-    overall_reasoning: str
+    overall_reasoning: str = ""
 
 
 class FinancialSummary(BaseModel):

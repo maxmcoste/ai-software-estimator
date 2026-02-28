@@ -6,8 +6,13 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from app.api.schemas import EstimateJobResponse, JobStatusResponse
-from app.core import estimator
+from app.api.schemas import (
+    EstimateJobResponse, JobStatusResponse,
+    ChatRequest, ChatResponse,
+    SaveRequest, SaveSummary, SaveDetail,
+)
+from app.core import estimator, saves as saves_store
+from app.core import claude_client, report_generator
 from app.dependencies import get_settings
 
 logger = logging.getLogger(__name__)
@@ -75,6 +80,171 @@ async def get_status(job_id: str):
         progress_message=job.progress_message,
         error_detail=job.error_detail,
     )
+
+
+@router.post("/saves", response_model=SaveSummary)
+async def create_save(req: SaveRequest):
+    job = estimator.get_job(req.job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done" or job.estimate_result is None:
+        raise HTTPException(status_code=409, detail="Estimation not complete")
+    if job.report_path is None or not job.report_path.exists():
+        raise HTTPException(status_code=500, detail="Report file missing")
+
+    report_md = job.report_path.read_text(encoding="utf-8")
+    data = saves_store.create_save(
+        name=req.name.strip() or job.estimate_result.project_name,
+        requirements_md=job.requirements_md,
+        model_md=job.model_md,
+        report_markdown=report_md,
+        estimate_data=job.estimate_result.model_dump(),
+        financials_data=job.financials.model_dump(),
+    )
+    return SaveSummary(**{k: data[k] for k in SaveSummary.model_fields},
+                       project_name=data["estimate_data"].get("project_name", ""),
+                       grand_mandays=data["financials_data"]["grand_mandays"],
+                       grand_cost=data["financials_data"]["grand_cost"],
+                       currency=data["financials_data"]["currency"])
+
+
+@router.get("/saves", response_model=list[SaveSummary])
+async def list_saves():
+    return [SaveSummary(**s) for s in saves_store.list_saves()]
+
+
+@router.get("/saves/{save_id}", response_model=SaveDetail)
+async def get_save(save_id: str):
+    data = saves_store.get_save(save_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Save not found")
+    return SaveDetail(
+        **{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at",
+                                 "report_markdown", "requirements_md")},
+        project_name=data["estimate_data"].get("project_name", ""),
+        grand_mandays=data["financials_data"]["grand_mandays"],
+        grand_cost=data["financials_data"]["grand_cost"],
+        currency=data["financials_data"]["currency"],
+    )
+
+
+@router.post("/saves/{save_id}/finalize", response_model=SaveSummary)
+async def finalize_save(save_id: str):
+    data = saves_store.finalize_save(save_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Save not found")
+    return SaveSummary(
+        **{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at")},
+        project_name=data["estimate_data"].get("project_name", ""),
+        grand_mandays=data["financials_data"]["grand_mandays"],
+        grand_cost=data["financials_data"]["grand_cost"],
+        currency=data["financials_data"]["currency"],
+    )
+
+
+@router.delete("/saves/{save_id}")
+async def delete_save(save_id: str):
+    ok = saves_store.delete_save(save_id)
+    if not ok:
+        data = saves_store.get_save(save_id)
+        if data is None:
+            raise HTTPException(status_code=404, detail="Save not found")
+        raise HTTPException(status_code=403, detail="Finalized estimates cannot be deleted")
+    return {"deleted": True}
+
+
+@router.post("/estimate/{job_id}/rerun", response_model=EstimateJobResponse)
+async def rerun_estimate(
+    background_tasks: BackgroundTasks,
+    job_id: str,
+    model_file: Annotated[Optional[UploadFile], File()] = None,
+):
+    job = estimator.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in ("done", "error"):
+        raise HTTPException(status_code=409, detail="Cannot re-run a job that is still running")
+
+    settings = get_settings()
+
+    if model_file and model_file.filename:
+        model_md = (await model_file.read()).decode("utf-8", errors="replace")
+    else:
+        raise HTTPException(status_code=422, detail="A new estimation model file is required for re-run")
+
+    manday_cost = job.financials.manday_cost if job.financials else 500.0
+    currency    = job.financials.currency    if job.financials else "EUR"
+
+    # Reset job state, preserve requirements and repo context
+    estimator.update_job(
+        job_id,
+        status="pending",
+        progress_message="Waiting to start…",
+        error_detail=None,
+        estimate_result=None,
+        financials=None,
+        model_md=model_md,
+        chat_history=[],
+    )
+
+    background_tasks.add_task(
+        estimator.run_estimation,
+        job_id=job_id,
+        requirements_md=job.requirements_md,
+        model_md=model_md,
+        github_url="",
+        github_token="",
+        manday_cost=manday_cost,
+        currency=currency,
+        reports_dir=settings.REPORTS_DIR,
+        api_key=settings.ANTHROPIC_API_KEY,
+        cached_repo_summary=job.repo_summary,   # reuse existing GitHub analysis
+    )
+
+    return EstimateJobResponse(job_id=job_id)
+
+
+@router.post("/estimate/{job_id}/chat", response_model=ChatResponse)
+def chat(job_id: str, req: ChatRequest):
+    """Sync endpoint — FastAPI runs it in a thread pool automatically."""
+    job = estimator.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done":
+        raise HTTPException(status_code=409, detail="Estimation not complete yet")
+    if job.estimate_result is None:
+        raise HTTPException(status_code=500, detail="Estimate data not available for chat")
+
+    settings = get_settings()
+
+    reply, updated_estimate = claude_client.chat_with_claude(
+        api_key=settings.ANTHROPIC_API_KEY,
+        message=req.message,
+        chat_history=job.chat_history,
+        current_estimate=job.estimate_result,
+    )
+
+    # Append to history as plain text (current estimate is always in the system prompt)
+    job.chat_history.append({"role": "user", "content": req.message})
+    job.chat_history.append({"role": "assistant", "content": reply})
+
+    report_markdown = None
+    if updated_estimate is not None:
+        new_financials = estimator._compute_financials(
+            updated_estimate,
+            job.financials.manday_cost,
+            job.financials.currency,
+        )
+        report_path = settings.REPORTS_DIR / f"{job_id}.md"
+        report_generator.generate_report(
+            estimate=updated_estimate,
+            financials=new_financials,
+            report_path=report_path,
+        )
+        estimator.update_job(job_id, estimate_result=updated_estimate, financials=new_financials)
+        report_markdown = report_path.read_text(encoding="utf-8")
+
+    return ChatResponse(reply=reply, estimate_updated=updated_estimate is not None, report_markdown=report_markdown)
 
 
 @router.get("/estimate/{job_id}/report")

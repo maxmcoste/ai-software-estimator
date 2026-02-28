@@ -8,6 +8,13 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
+  <nav class="topnav">
+    <span class="topnav-brand">AI Estimator</span>
+    <div class="topnav-links">
+      <a href="/" class="topnav-link active">New Estimate</a>
+      <a href="/history" class="topnav-link">History</a>
+    </div>
+  </nav>
   <div class="container">
     <header>
       <h1>AI Software Estimator</h1>
@@ -114,14 +121,71 @@
 
       <!-- RESULT -->
       <section id="result-section" class="hidden">
-        <div class="result-header">
-          <h2>Estimation Report</h2>
-          <div class="result-actions">
-            <button id="download-btn" class="btn-secondary">Download .md</button>
-            <button id="new-estimate-btn" class="btn-outline">New Estimate</button>
+        <div class="result-split">
+
+          <!-- Left: report -->
+          <div class="result-left">
+            <div class="result-header">
+              <h2>Estimation Report</h2>
+              <div class="result-actions">
+                <button id="download-btn" class="btn-secondary">Download .md</button>
+                <button id="save-btn" class="btn-outline">Save</button>
+                <button id="rerun-toggle-btn" class="btn-outline">Re-run with new model</button>
+                <button id="new-estimate-btn" class="btn-outline">New Estimate</button>
+              </div>
+            </div>
+
+            <!-- Save dialog -->
+            <div id="save-panel" class="save-panel hidden">
+              <span class="rerun-label">Save this estimate as a draft:</span>
+              <div class="rerun-controls">
+                <input type="text" id="save-name-input" class="save-name-input" placeholder="Estimate name…" />
+                <button id="save-confirm-btn" class="btn-primary rerun-confirm-btn">Save draft</button>
+                <button id="save-cancel-btn" class="btn-outline">Cancel</button>
+              </div>
+            </div>
+
+            <!-- Re-run panel -->
+            <div id="rerun-panel" class="rerun-panel hidden">
+              <span class="rerun-label">Upload a new estimation model to re-run with the same requirements:</span>
+              <div class="rerun-controls">
+                <label class="file-pick-btn">
+                  Select model (.md)…
+                  <input type="file" id="rerun-model-file" accept=".md,.txt,.markdown" />
+                </label>
+                <span id="rerun-file-name" class="file-name"></span>
+                <button id="rerun-confirm-btn" class="btn-primary rerun-confirm-btn" disabled>Re-estimate</button>
+              </div>
+            </div>
+
+            <div id="report-content" class="markdown-body"></div>
           </div>
+
+          <!-- Right: chat -->
+          <div class="result-right">
+            <div class="chat-panel">
+              <div class="chat-header">
+                <span class="chat-title">Refine with AI</span>
+                <span class="chat-hint">Ask Claude to explain or adjust any part of the estimate</span>
+              </div>
+              <div id="chat-messages" class="chat-messages">
+                <div class="chat-bubble assistant">
+                  Hi! I can explain any reasoning behind this estimate, or help you adjust specific values. What would you like to change?
+                </div>
+              </div>
+              <div id="chat-thinking" class="chat-thinking hidden">
+                <div class="chat-thinking-dots"><span></span><span></span><span></span></div>
+                <span>Claude is thinking…</span>
+              </div>
+              <div class="chat-input-area">
+                <textarea id="chat-input" class="chat-input"
+                  placeholder="e.g. Reduce QA to 5 mandays, add a SPIKE for ML model…" rows="2"></textarea>
+                <button id="chat-send-btn" class="btn-primary chat-send-btn">Send</button>
+              </div>
+            </div>
+          </div>
+
         </div>
-        <div id="report-content" class="markdown-body"></div>
       </section>
 
       <!-- ERROR -->

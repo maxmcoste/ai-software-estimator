@@ -76,6 +76,22 @@
     errorBanner.classList.add('hidden');
     submitBtn.disabled = false;
     reportDiv.innerHTML = '';
+    document.querySelector('.container').classList.remove('wide');
+    // Reset save
+    savePanel.classList.add('hidden');
+    saveNameInput.value = '';
+    saveBtn.textContent = 'Save';
+    saveBtn.disabled = false;
+    // Reset re-run panel
+    rerunPanel.classList.add('hidden');
+    rerunModelFile.value = '';
+    rerunFileName.textContent = '';
+    rerunConfirmBtn.disabled = true;
+    rerunToggleBtn.disabled  = false;
+    // Reset chat
+    const chatMessages = document.getElementById('chat-messages');
+    chatMessages.innerHTML = '<div class="chat-bubble assistant">Hi! I can explain any reasoning behind this estimate, or help you adjust specific values. What would you like to change?</div>';
+    document.getElementById('chat-input').value = '';
     uploadPct.textContent = '0%';
     uploadBarFill.style.width = '0%';
     uploadProgressWrap.classList.remove('hidden');
@@ -146,6 +162,7 @@
     progressSec.classList.add('hidden');
     reportDiv.innerHTML = marked.parse(markdown);
     resultSec.classList.remove('hidden');
+    document.querySelector('.container').classList.add('wide');
   }
 
   // ── Form submission ─────────────────────────────────────────────────────
@@ -195,6 +212,16 @@
     fd.append('currency',    currency);
 
     const xhr = new XMLHttpRequest();
+    let uploadTransitioned = false;
+
+    function ensureEstimationPhase() {
+      if (!uploadTransitioned) {
+        uploadTransitioned = true;
+        uploadPct.textContent = '100%';
+        uploadBarFill.style.width = '100%';
+        switchToEstimationProgress('Request received — starting estimation…');
+      }
+    }
 
     xhr.upload.addEventListener('progress', e => {
       if (e.lengthComputable) {
@@ -204,14 +231,13 @@
       }
     });
 
-    xhr.upload.addEventListener('load', () => {
-      // Ensure bar shows 100% before switching (fast uploads may skip progress events)
-      uploadPct.textContent = '100%';
-      uploadBarFill.style.width = '100%';
-      setTimeout(() => switchToEstimationProgress('Request received — starting estimation…'), 300);
-    });
+    // upload.load fires when request body is fully sent — not always reliable
+    // for small payloads on Safari/macOS, so ensureEstimationPhase() is also
+    // called in xhr.load as a guaranteed fallback.
+    xhr.upload.addEventListener('load', ensureEstimationPhase);
 
     xhr.addEventListener('load', () => {
+      ensureEstimationPhase(); // no-op if upload.load already fired
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const { job_id } = JSON.parse(xhr.responseText);
@@ -292,6 +318,202 @@
     link.href  = `/api/estimate/${currentJobId}/report`;
     link.download = `estimate-${currentJobId.slice(0, 8)}.md`;
     link.click();
+  });
+
+  // ── Save ──────────────────────────────────────────────────────────────────
+  const saveBtn        = document.getElementById('save-btn');
+  const savePanel      = document.getElementById('save-panel');
+  const saveNameInput  = document.getElementById('save-name-input');
+  const saveConfirmBtn = document.getElementById('save-confirm-btn');
+  const saveCancelBtn  = document.getElementById('save-cancel-btn');
+
+  saveBtn.addEventListener('click', () => {
+    savePanel.classList.toggle('hidden');
+    if (!savePanel.classList.contains('hidden')) saveNameInput.focus();
+  });
+
+  saveCancelBtn.addEventListener('click', () => {
+    savePanel.classList.add('hidden');
+  });
+
+  saveConfirmBtn.addEventListener('click', async () => {
+    if (!currentJobId) return;
+    const name = saveNameInput.value.trim();
+    saveConfirmBtn.disabled = true;
+
+    try {
+      const res = await fetch('/api/saves', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: currentJobId, name }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail ?? `HTTP ${res.status}`);
+      }
+      savePanel.classList.add('hidden');
+      saveBtn.textContent = 'Saved ✓';
+      saveBtn.disabled = true;
+    } catch (err) {
+      showError('Save failed: ' + err.message);
+      saveConfirmBtn.disabled = false;
+    }
+  });
+
+  saveNameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveConfirmBtn.click();
+    if (e.key === 'Escape') saveCancelBtn.click();
+  });
+
+  // ── Re-run with new model ────────────────────────────────────────────────
+  const rerunToggleBtn  = document.getElementById('rerun-toggle-btn');
+  const rerunPanel      = document.getElementById('rerun-panel');
+  const rerunModelFile  = document.getElementById('rerun-model-file');
+  const rerunFileName   = document.getElementById('rerun-file-name');
+  const rerunConfirmBtn = document.getElementById('rerun-confirm-btn');
+
+  rerunToggleBtn.addEventListener('click', () => {
+    rerunPanel.classList.toggle('hidden');
+  });
+
+  rerunModelFile.addEventListener('change', e => {
+    const file = e.target.files[0];
+    rerunFileName.textContent = file?.name ?? '';
+    rerunConfirmBtn.disabled = !file;
+  });
+
+  rerunConfirmBtn.addEventListener('click', async () => {
+    const file = rerunModelFile.files[0];
+    if (!file || !currentJobId) return;
+
+    rerunConfirmBtn.disabled = true;
+    rerunToggleBtn.disabled  = true;
+    rerunPanel.classList.add('hidden');
+
+    // Transition to progress view (reuse existing infrastructure)
+    resultSec.classList.add('hidden');
+    document.querySelector('.container').classList.remove('wide');
+    uploadTransitionedGlobal = false;
+    showUploadProgress();
+
+    const fd = new FormData();
+    fd.append('model_file', file);
+
+    const xhr = new XMLHttpRequest();
+    let uploadTransitioned = false;
+
+    function ensureEstimationPhase() {
+      if (!uploadTransitioned) {
+        uploadTransitioned = true;
+        uploadPct.textContent = '100%';
+        uploadBarFill.style.width = '100%';
+        switchToEstimationProgress('Re-running with new model…');
+      }
+    }
+
+    xhr.upload.addEventListener('progress', e => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        uploadPct.textContent = pct + '%';
+        uploadBarFill.style.width = pct + '%';
+      }
+    });
+    xhr.upload.addEventListener('load', ensureEstimationPhase);
+
+    xhr.addEventListener('load', () => {
+      ensureEstimationPhase();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        startPolling();   // job_id unchanged — poll same job
+      } else {
+        let detail = `HTTP ${xhr.status}`;
+        try { detail = JSON.parse(xhr.responseText).detail ?? detail; } catch { /* ignore */ }
+        showError(detail);
+        resultSec.classList.remove('hidden');
+        document.querySelector('.container').classList.add('wide');
+        progressSec.classList.add('hidden');
+        rerunConfirmBtn.disabled = false;
+        rerunToggleBtn.disabled  = false;
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      showError('Network error during re-run.');
+      resultSec.classList.remove('hidden');
+      document.querySelector('.container').classList.add('wide');
+      progressSec.classList.add('hidden');
+      rerunConfirmBtn.disabled = false;
+      rerunToggleBtn.disabled  = false;
+    });
+
+    xhr.open('POST', `/api/estimate/${currentJobId}/rerun`);
+    xhr.send(fd);
+  });
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  const chatInput     = document.getElementById('chat-input');
+  const chatSendBtn   = document.getElementById('chat-send-btn');
+  const chatMessages  = document.getElementById('chat-messages');
+  const chatThinking  = document.getElementById('chat-thinking');
+
+  function appendChatBubble(text, role, updated = false) {
+    const div = document.createElement('div');
+    div.className = 'chat-bubble ' + role + (updated ? ' updated' : '');
+    div.innerHTML = role === 'assistant' ? marked.parse(text) : escapeHtml(text);
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message || !currentJobId) return;
+
+    chatInput.value = '';
+    chatInput.disabled = true;
+    chatSendBtn.disabled = true;
+    appendChatBubble(message, 'user');
+    chatThinking.classList.remove('hidden');
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    try {
+      const res = await fetch(`/api/estimate/${currentJobId}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+
+      chatThinking.classList.add('hidden');
+      appendChatBubble(data.reply, 'assistant', data.estimate_updated);
+
+      if (data.estimate_updated && data.report_markdown) {
+        reportDiv.innerHTML = marked.parse(data.report_markdown);
+        reportDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (err) {
+      chatThinking.classList.add('hidden');
+      appendChatBubble('Sorry, something went wrong: ' + err.message, 'assistant');
+    } finally {
+      chatInput.disabled = false;
+      chatSendBtn.disabled = false;
+      chatInput.focus();
+    }
+  }
+
+  chatSendBtn.addEventListener('click', sendChatMessage);
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
   });
 
 })();
