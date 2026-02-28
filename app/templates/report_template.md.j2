@@ -1,0 +1,180 @@
+# Software Estimation Report: {{ estimate.project_name }}
+
+> Generated: {{ generated_at }}
+
+---
+
+## Executive Summary
+
+{{ estimate.project_summary }}
+
+{% if github_warning %}
+> ⚠️ **GitHub Warning:** {{ github_warning }}
+{% endif %}
+
+### Cost Overview
+
+| Component | Mandays | Cost ({{ financials.currency }}) |
+|:---|---:|---:|
+| **Core (AI-Assisted Development)** | {{ "%.1f"|format(financials.core_mandays) }} | {{ "{:,.2f}".format(financials.core_cost) }} |
+{% if estimate.satellites.pm_orchestration.active %}
+| Project Management & Orchestration | {{ "%.1f"|format(financials.pm_mandays) }} | {{ "{:,.2f}".format(financials.pm_cost) }} |
+{% endif %}
+{% if estimate.satellites.solution_architecture.active %}
+| Solution Architecture & Infrastructure | {{ "%.1f"|format(financials.sa_mandays) }} | {{ "{:,.2f}".format(financials.sa_cost) }} |
+{% endif %}
+{% if estimate.satellites.cybersecurity.active %}
+| Cybersecurity & Compliance | {{ "%.1f"|format(financials.cyber_mandays) }} | {{ "{:,.2f}".format(financials.cyber_cost) }} |
+{% endif %}
+{% if estimate.satellites.digital_experience.active %}
+| Digital Experience (UX/UI) | {{ "%.1f"|format(financials.dx_mandays) }} | {{ "{:,.2f}".format(financials.dx_cost) }} |
+{% endif %}
+{% if estimate.satellites.quality_assurance.active %}
+| Quality Assurance | {{ "%.1f"|format(financials.qa_mandays) }} | {{ "{:,.2f}".format(financials.qa_cost) }} |
+{% endif %}
+| **TOTAL** | **{{ "%.1f"|format(financials.grand_mandays) }}** | **{{ "{:,.2f}".format(financials.grand_cost) }}** |
+
+> Manday rate: {{ financials.currency }} {{ "{:,.2f}".format(financials.manday_cost) }}
+
+---
+
+## Core: Functional Complexity
+
+**Scalability Tier:** {{ estimate.core.scalability_tier | upper }}
+**Scalability Multiplier:** {{ estimate.core.scalability_multiplier }}x
+**Base FCU (before multiplier):** {{ "%.1f"|format(estimate.core.base_fcu_mandays) }} mandays
+**Core Total:** {{ "%.1f"|format(estimate.core.total_mandays) }} mandays
+
+### Data Entities
+
+| Entity | Operations | Mandays |
+|:---|:---|---:|
+{% for entity in estimate.core.data_entities %}
+| {{ entity.name }} | {{ entity.operations | join(", ") }} | {{ "%.1f"|format(entity.mandays) }} |
+{% endfor %}
+
+### API Integrations
+
+| Integration | Direction | Complexity | Mandays |
+|:---|:---|:---|---:|
+{% for api in estimate.core.api_integrations %}
+| {{ api.name }} | {{ api.direction }} | {{ api.complexity }} | {{ "%.1f"|format(api.mandays) }} |
+{% endfor %}
+{% if not estimate.core.api_integrations %}
+| — | — | — | — |
+{% endif %}
+
+### Business Logic
+
+{{ "%.1f"|format(estimate.core.business_logic_mandays) }} mandays
+
+{% if estimate.core.spikes %}
+### SPIKEs (Technology Unknowns / R&D)
+
+| Description | Mandays |
+|:---|---:|
+{% for spike in estimate.core.spikes %}
+| {{ spike.description }} | {{ "%.1f"|format(spike.mandays) }} |
+{% endfor %}
+{% endif %}
+
+### Core Reasoning
+
+{{ estimate.core.reasoning }}
+
+---
+
+## Satellites
+
+{% set sat = estimate.satellites.pm_orchestration %}
+### Satellite 1: Project Management & Orchestration
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| Project Size | {{ sat.project_size }} |
+| Base FTE/Month | {{ sat.base_fte_per_month }} |
+| Project Months | {{ sat.project_months }} |
+| Team Factor | {{ sat.team_factor }}x |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
+{% set sat = estimate.satellites.solution_architecture %}
+### Satellite 2: Solution Architecture & Infrastructure
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| External Systems | {{ sat.external_systems_count }} |
+| Environment Complexity | {{ sat.environment_complexity }} |
+| FinOps Months | {{ sat.finops_months }} |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
+{% set sat = estimate.satellites.cybersecurity %}
+### Satellite 3: Cybersecurity & Compliance
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| Sensitivity Tier | {{ sat.sensitivity_tier }} |
+| Security Gates | {{ sat.security_gates_count }} |
+| Compliance Add-ons | {{ sat.compliance_addons | join(", ") if sat.compliance_addons else "None" }} |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
+{% set sat = estimate.satellites.digital_experience %}
+### Satellite 4: Digital Experience (UX/UI)
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| User Journey Complexity | {{ sat.user_journey_complexity }} |
+| Accessibility (WCAG 2.1) | {{ "Required" if sat.accessibility_required else "Not required" }} |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
+{% set sat = estimate.satellites.quality_assurance %}
+### Satellite 5: Quality Assurance
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| Verification Points | {{ sat.verification_points }} |
+| Criticality Tier | {{ sat.criticality_tier }} |
+| Performance Testing | {{ "Yes" if sat.performance_testing else "No" }} |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
+## Overall Reasoning
+
+{{ estimate.overall_reasoning }}
+
+---
+
+*This estimate was generated by AI using the Core & Satellites model. It is an approximation based on the requirements provided and should be reviewed by a qualified estimator before use in contractual contexts.*

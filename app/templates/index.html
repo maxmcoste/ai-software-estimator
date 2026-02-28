@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Software Estimator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>AI Software Estimator</h1>
+      <p class="subtitle">Core &amp; Satellites estimation model — powered by Claude</p>
+    </header>
+
+    <main>
+      <!-- FORM -->
+      <section id="form-section">
+        <form id="estimate-form" novalidate>
+
+          <!-- Requirements -->
+          <fieldset>
+            <legend>Project Requirements <span class="required">*</span></legend>
+            <div class="tab-bar">
+              <button type="button" class="tab-btn active" data-tab="upload">Upload file</button>
+              <button type="button" class="tab-btn" data-tab="paste">Paste text</button>
+            </div>
+            <div id="tab-upload" class="tab-panel active">
+              <label for="requirements_file" class="file-label">
+                <span>Choose Markdown file…</span>
+                <input type="file" id="requirements_file" name="requirements_file" accept=".md,.txt,.markdown" />
+              </label>
+              <span id="req-file-name" class="file-name"></span>
+            </div>
+            <div id="tab-paste" class="tab-panel">
+              <textarea id="requirements_text" name="requirements_text" rows="10"
+                placeholder="Paste your requirements in Markdown format…"></textarea>
+            </div>
+          </fieldset>
+
+          <!-- Estimation Model -->
+          <fieldset>
+            <legend>Estimation Model</legend>
+            <label class="checkbox-label">
+              <input type="checkbox" id="use-default-model" checked />
+              Use default model (Core &amp; Satellites)
+            </label>
+            <div id="custom-model-panel" class="hidden">
+              <label for="estimation_model_file" class="file-label">
+                <span>Upload custom model (.md)…</span>
+                <input type="file" id="estimation_model_file" name="estimation_model_file" accept=".md,.txt,.markdown" />
+              </label>
+              <span id="model-file-name" class="file-name"></span>
+            </div>
+          </fieldset>
+
+          <!-- GitHub -->
+          <fieldset>
+            <legend>GitHub Repository (optional)</legend>
+            <label for="github_url">Repository URL</label>
+            <input type="url" id="github_url" name="github_url"
+              placeholder="https://github.com/owner/repo" />
+            <label for="github_token">Personal Access Token (if private)</label>
+            <input type="password" id="github_token" name="github_token"
+              placeholder="ghp_…" autocomplete="off" />
+          </fieldset>
+
+          <!-- Financials -->
+          <fieldset>
+            <legend>Financial Parameters</legend>
+            <div class="row">
+              <div class="field">
+                <label for="manday_cost">Manday Cost</label>
+                <input type="number" id="manday_cost" name="manday_cost" value="500" min="1" step="1" />
+              </div>
+              <div class="field">
+                <label for="currency">Currency</label>
+                <select id="currency" name="currency">
+                  <option value="EUR" selected>EUR €</option>
+                  <option value="USD">USD $</option>
+                  <option value="GBP">GBP £</option>
+                  <option value="CHF">CHF</option>
+                </select>
+              </div>
+            </div>
+          </fieldset>
+
+          <button type="submit" id="submit-btn" class="btn-primary">Generate Estimate</button>
+        </form>
+      </section>
+
+      <!-- PROGRESS -->
+      <section id="progress-section" class="hidden">
+        <div class="progress-card">
+          <div class="spinner"></div>
+          <p id="progress-message">Starting…</p>
+        </div>
+      </section>
+
+      <!-- RESULT -->
+      <section id="result-section" class="hidden">
+        <div class="result-header">
+          <h2>Estimation Report</h2>
+          <div class="result-actions">
+            <button id="download-btn" class="btn-secondary">Download .md</button>
+            <button id="new-estimate-btn" class="btn-outline">New Estimate</button>
+          </div>
+        </div>
+        <div id="report-content" class="markdown-body"></div>
+      </section>
+
+      <!-- ERROR -->
+      <div id="error-banner" class="error-banner hidden">
+        <strong>Error:</strong> <span id="error-message"></span>
+        <button id="dismiss-error" class="btn-dismiss">✕</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
