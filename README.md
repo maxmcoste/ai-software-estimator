@@ -1,11 +1,14 @@
-# AI Software Estimator
+# AI Software Estimator ⚠️ Alpha
+
+> **This project is in active development and is not yet production-ready.** APIs, data formats, and workflows may change between commits. Use for evaluation and experimentation only.
 
 An AI-powered web application that produces detailed software project estimates using the **Core & Satellites** model and the Anthropic Claude API. Submit a requirements document, optionally enrich the analysis with a GitHub repository, and receive a structured breakdown of mandays and costs — split across functional development and five governance satellites.
 
+![Alpha](https://img.shields.io/badge/status-alpha-orange)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-green)
 ![Claude](https://img.shields.io/badge/Claude-claude--opus--4--6-purple)
-![License](https://img.shields.io/badge/license-MIT-gray)
+![License](https://img.shields.io/badge/license-Apache%202.0-blue)
 
 ---
 
@@ -423,4 +426,6 @@ python-multipart, markdown2, python-dotenv, httpx
 
 ## License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE) for the full text.
+
+Copyright 2026 Massimiliano Del Vecchi
