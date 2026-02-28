@@ -78,8 +78,29 @@ class QualityAssurance(BaseModel):
     total_mandays: float
 
 
+class DedicatedBusinessAnalysis(BaseModel):
+    active: bool
+    justification: str
+    fte_dedicated: float = Field(description="FTE dedicated, e.g. 0.5 or 1.0")
+    duration_months: float
+    total_mandays: float
+
+
+def _default_dedicated_ba() -> "DedicatedBusinessAnalysis":
+    return DedicatedBusinessAnalysis(
+        active=False,
+        justification="Not applicable with this estimation model.",
+        fte_dedicated=0.0,
+        duration_months=0.0,
+        total_mandays=0.0,
+    )
+
+
 class Satellites(BaseModel):
     pm_orchestration: PmOrchestration
+    dedicated_business_analysis: DedicatedBusinessAnalysis = Field(
+        default_factory=_default_dedicated_ba
+    )
     solution_architecture: SolutionArchitecture
     cybersecurity: Cybersecurity
     digital_experience: DigitalExperience
@@ -121,6 +142,8 @@ class FinancialSummary(BaseModel):
     core_cost: float
     pm_mandays: float
     pm_cost: float
+    ba_mandays: float = 0.0
+    ba_cost: float = 0.0
     sa_mandays: float
     sa_cost: float
     cyber_mandays: float

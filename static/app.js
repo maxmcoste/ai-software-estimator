@@ -140,6 +140,15 @@
     errorBanner.classList.remove('hidden');
   }
 
+  let _toastTimer = null;
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.classList.add('toast-visible');
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => toast.classList.remove('toast-visible'), 3000);
+  }
+
   function resetUI() {
     clearInterval(pollTimer);
     clearInterval(elapsedTimer);
@@ -481,9 +490,12 @@
         const d = await res.json().catch(() => ({}));
         throw new Error(d.detail ?? `HTTP ${res.status}`);
       }
+      const saved = await res.json();
+      currentSaveId = saved.save_id;
       savePanel.classList.add('hidden');
-      saveBtn.textContent = 'Saved ✓';
-      saveBtn.disabled = true;
+      saveBtn.textContent = 'Update draft';
+      saveBtn.disabled = false;
+      showToast('Draft saved successfully');
     } catch (err) {
       showError('Save failed: ' + err.message);
       saveConfirmBtn.disabled = false;

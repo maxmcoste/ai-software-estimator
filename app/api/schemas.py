@@ -30,11 +30,13 @@ class SaveSummary(BaseModel):
 
 
 class PhaseRoleSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     role: str
     mandays: float
 
 
 class PlanPhaseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     name: str
     start_week: int
     end_week: int
@@ -42,6 +44,7 @@ class PlanPhaseSchema(BaseModel):
 
 
 class RoleEstimateSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
     role: str
     mandays: float
     description: str = ""

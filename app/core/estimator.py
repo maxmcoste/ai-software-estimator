@@ -57,12 +57,13 @@ def _compute_financials(result: EstimateResult, manday_cost: float, currency: st
 
     core_md = result.core.total_mandays
     pm_md = sat_md(s.pm_orchestration)
+    ba_md = sat_md(s.dedicated_business_analysis)
     sa_md = sat_md(s.solution_architecture)
     cyber_md = sat_md(s.cybersecurity)
     dx_md = sat_md(s.digital_experience)
     qa_md = sat_md(s.quality_assurance)
 
-    grand_md = core_md + pm_md + sa_md + cyber_md + dx_md + qa_md
+    grand_md = core_md + pm_md + ba_md + sa_md + cyber_md + dx_md + qa_md
 
     return FinancialSummary(
         manday_cost=manday_cost,
@@ -71,6 +72,8 @@ def _compute_financials(result: EstimateResult, manday_cost: float, currency: st
         core_cost=round(core_md * manday_cost, 2),
         pm_mandays=pm_md,
         pm_cost=round(pm_md * manday_cost, 2),
+        ba_mandays=ba_md,
+        ba_cost=round(ba_md * manday_cost, 2),
         sa_mandays=sa_md,
         sa_cost=round(sa_md * manday_cost, 2),
         cyber_mandays=cyber_md,

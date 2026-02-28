@@ -115,7 +115,7 @@ PRODUCE_ESTIMATE_TOOL = {
             },
             "satellites": {
                 "type": "object",
-                "required": ["pm_orchestration", "solution_architecture", "cybersecurity", "digital_experience", "quality_assurance"],
+                "required": ["pm_orchestration", "dedicated_business_analysis", "solution_architecture", "cybersecurity", "digital_experience", "quality_assurance"],
                 "properties": {
                     "pm_orchestration": {
                         "type": "object",
@@ -127,6 +127,18 @@ PRODUCE_ESTIMATE_TOOL = {
                             "base_fte_per_month": {"type": "number"},
                             "project_months": {"type": "number"},
                             "team_factor": {"type": "number"},
+                            "total_mandays": {"type": "number"}
+                        }
+                    },
+                    "dedicated_business_analysis": {
+                        "type": "object",
+                        "description": "Dedicated BA satellite (NEW in V2): active when the client lacks ready requirements or needs active stakeholder management.",
+                        "required": ["active", "justification", "fte_dedicated", "duration_months", "total_mandays"],
+                        "properties": {
+                            "active": {"type": "boolean"},
+                            "justification": {"type": "string"},
+                            "fte_dedicated": {"type": "number", "description": "FTE dedicated (e.g. 0.5 or 1.0)"},
+                            "duration_months": {"type": "number"},
                             "total_mandays": {"type": "number"}
                         }
                     },
@@ -184,29 +196,29 @@ PRODUCE_ESTIMATE_TOOL = {
 }
 
 
-def build_system_prompt() -> str:
-    return """You are an expert software project estimator specializing in the Core & Satellites model for the post-GenAI era.
+def build_system_prompt(model_md: str) -> str:
+    return f"""You are an expert software project estimator. \
+Follow the ESTIMATION MODEL below as the primary methodology reference.
 
-STRICT RULES:
+STRICT RULES (structural — always apply):
 1. Enumerate EVERY data entity that requires CRUD operations — do not bundle them.
 2. List EVERY external API integration separately with direction and complexity.
-3. Apply scalability multipliers exactly as specified in the model: low=1.0x, medium=1.3x, high=1.8x.
-4. Only activate satellites that are GENUINELY needed for this project — justify each with a concrete reason.
+3. Apply scalability multipliers and formulas EXACTLY as defined in the ESTIMATION MODEL below.
+4. Only activate satellites that are GENUINELY needed — justify each with a concrete reason.
 5. Flag every technology unknown or legacy integration as a SPIKE with a specific manday cost.
-6. When a GitHub codebase is provided, distinguish clearly between existing components (no cost) and new components to build.
-7. Base FCU mandays = sum of all data entity mandays + sum of API integration mandays + business_logic_mandays.
-8. Total core mandays = (base_fcu_mandays × scalability_multiplier) + sum of all spike mandays.
-9. Return ONLY the tool call — no prose, no explanation outside the structured output.
-10. Use realistic manday estimates: a simple CRUD entity ≈ 1-3 mandays; a complex integration ≈ 3-8 mandays.
-11. Produce a complete `roles` list: map ALL mandays from Core and every active Satellite to specific named roles (e.g. Backend Developer, Tech Lead, Solution Architect, Project Manager, QA Engineer, UX Designer, Security Engineer, DevOps Engineer). The sum of all role mandays must match the grand total.
-12. Produce a `plan_phases` list as a realistic sequential schedule in weeks (week 1 = project start). Each phase contains the roles active in that phase with their allocated mandays for that phase. Total mandays per role across all phases should match the role totals."""
+6. When a GitHub codebase is provided, distinguish clearly between existing (no cost) and new components.
+7. Return ONLY the tool call — no prose outside the structured output.
+8. Use realistic manday estimates: simple CRUD entity ≈ 1–3 md; complex integration ≈ 3–8 md.
+9. Produce a complete `roles` list mapping ALL mandays from Core and active Satellites to named roles. Sum must equal grand total.
+10. Produce a `plan_phases` list as a realistic sequential weekly schedule. Mandays per role across phases must match role totals.
+
+## ESTIMATION MODEL
+
+{model_md}"""
 
 
-def build_user_prompt(model_md: str, requirements_md: str, repo_summary: str | None) -> str:
-    parts = [
-        "## ESTIMATION MODEL\n\n" + model_md,
-        "## PROJECT REQUIREMENTS\n\n" + requirements_md,
-    ]
+def build_user_prompt(requirements_md: str, repo_summary: str | None) -> str:
+    parts = ["## PROJECT REQUIREMENTS\n\n" + requirements_md]
     if repo_summary:
         parts.append("## CODEBASE ANALYSIS\n\n" + repo_summary)
     return "\n\n---\n\n".join(parts)
@@ -221,8 +233,8 @@ def call_claude(
     max_retries: int = 3,
 ) -> EstimateResult:
     client = Anthropic(api_key=api_key)
-    system_prompt = build_system_prompt()
-    user_prompt = build_user_prompt(model_md, requirements_md, repo_summary)
+    system_prompt = build_system_prompt(model_md)
+    user_prompt = build_user_prompt(requirements_md, repo_summary)
 
     last_error: Exception | None = None
     for attempt in range(1, max_retries + 1):

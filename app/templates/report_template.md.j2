@@ -20,6 +20,9 @@
 {% if estimate.satellites.pm_orchestration.active %}
 | Project Management & Orchestration | {{ "%.1f"|format(financials.pm_mandays) }} | {{ "{:,.2f}".format(financials.pm_cost) }} |
 {% endif %}
+{% if estimate.satellites.dedicated_business_analysis.active %}
+| Dedicated Business Analysis | {{ "%.1f"|format(financials.ba_mandays) }} | {{ "{:,.2f}".format(financials.ba_cost) }} |
+{% endif %}
 {% if estimate.satellites.solution_architecture.active %}
 | Solution Architecture & Infrastructure | {{ "%.1f"|format(financials.sa_mandays) }} | {{ "{:,.2f}".format(financials.sa_cost) }} |
 {% endif %}
@@ -132,8 +135,24 @@
 
 ---
 
+{% set sat = estimate.satellites.dedicated_business_analysis %}
+### Satellite 2: Dedicated Business Analysis
+
+**Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
+**Justification:** {{ sat.justification }}
+{% if sat.active %}
+
+| Parameter | Value |
+|:---|:---|
+| FTE Dedicated | {{ sat.fte_dedicated }} |
+| Duration (months) | {{ sat.duration_months }} |
+| **Total Mandays** | **{{ "%.1f"|format(sat.total_mandays) }}** |
+{% endif %}
+
+---
+
 {% set sat = estimate.satellites.solution_architecture %}
-### Satellite 2: Solution Architecture & Infrastructure
+### Satellite 3: Solution Architecture & Infrastructure
 
 **Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
 **Justification:** {{ sat.justification }}
@@ -150,7 +169,7 @@
 ---
 
 {% set sat = estimate.satellites.cybersecurity %}
-### Satellite 3: Cybersecurity & Compliance
+### Satellite 4: Cybersecurity & Compliance
 
 **Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
 **Justification:** {{ sat.justification }}
@@ -167,7 +186,7 @@
 ---
 
 {% set sat = estimate.satellites.digital_experience %}
-### Satellite 4: Digital Experience (UX/UI)
+### Satellite 5: Digital Experience (UX/UI)
 
 **Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
 **Justification:** {{ sat.justification }}
@@ -183,7 +202,7 @@
 ---
 
 {% set sat = estimate.satellites.quality_assurance %}
-### Satellite 5: Quality Assurance
+### Satellite 6: Quality Assurance
 
 **Status:** {{ "ACTIVE" if sat.active else "NOT REQUIRED" }}
 **Justification:** {{ sat.justification }}

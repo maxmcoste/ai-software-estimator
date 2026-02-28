@@ -103,7 +103,7 @@ async def create_save(req: SaveRequest):
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
     )
-    return SaveSummary(**{k: data[k] for k in SaveSummary.model_fields},
+    return SaveSummary(**{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at")},
                        project_name=data["estimate_data"].get("project_name", ""),
                        grand_mandays=data["financials_data"]["grand_mandays"],
                        grand_cost=data["financials_data"]["grand_cost"],
