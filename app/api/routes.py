@@ -11,6 +11,7 @@ from app.api.schemas import (
     ChatRequest, ChatResponse,
     SaveRequest, SaveSummary, SaveDetail,
     OpenSaveResponse, UpdateSaveRequest, JobContextResponse,
+    PlanResponse, RoleEstimateSchema, PlanPhaseSchema,
 )
 from app.core import estimator, saves as saves_store
 from app.core import claude_client, report_generator
@@ -119,13 +120,16 @@ async def get_save(save_id: str):
     data = saves_store.get_save(save_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Save not found")
+    estimate_data = data.get("estimate_data", {})
     return SaveDetail(
         **{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at",
                                  "report_markdown", "requirements_md")},
-        project_name=data["estimate_data"].get("project_name", ""),
+        project_name=estimate_data.get("project_name", ""),
         grand_mandays=data["financials_data"]["grand_mandays"],
         grand_cost=data["financials_data"]["grand_cost"],
         currency=data["financials_data"]["currency"],
+        roles=estimate_data.get("roles", []),
+        plan_phases=estimate_data.get("plan_phases", []),
     )
 
 
@@ -217,6 +221,20 @@ async def update_save(save_id: str, req: UpdateSaveRequest):
         grand_mandays=data["financials_data"]["grand_mandays"],
         grand_cost=data["financials_data"]["grand_cost"],
         currency=data["financials_data"]["currency"],
+    )
+
+
+@router.get("/estimate/{job_id}/plan", response_model=PlanResponse)
+async def get_job_plan(job_id: str):
+    """Return roles and plan phases for a completed job."""
+    job = estimator.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != "done" or job.estimate_result is None:
+        raise HTTPException(status_code=409, detail="Estimation not complete")
+    return PlanResponse(
+        roles=job.estimate_result.roles,
+        plan_phases=job.estimate_result.plan_phases,
     )
 
 

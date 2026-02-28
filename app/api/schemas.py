@@ -29,9 +29,34 @@ class SaveSummary(BaseModel):
     currency: str
 
 
+class PhaseRoleSchema(BaseModel):
+    role: str
+    mandays: float
+
+
+class PlanPhaseSchema(BaseModel):
+    name: str
+    start_week: int
+    end_week: int
+    roles: list[PhaseRoleSchema]
+
+
+class RoleEstimateSchema(BaseModel):
+    role: str
+    mandays: float
+    description: str = ""
+
+
+class PlanResponse(BaseModel):
+    roles: list[RoleEstimateSchema]
+    plan_phases: list[PlanPhaseSchema]
+
+
 class SaveDetail(SaveSummary):
     report_markdown: str
     requirements_md: str
+    roles: list[RoleEstimateSchema] = []
+    plan_phases: list[PlanPhaseSchema] = []
 
 
 class ChatRequest(BaseModel):

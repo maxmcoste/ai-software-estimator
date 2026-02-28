@@ -86,12 +86,32 @@ class Satellites(BaseModel):
     quality_assurance: QualityAssurance
 
 
+class RoleEstimate(BaseModel):
+    role: str
+    mandays: float
+    description: str = ""
+
+
+class PhaseRole(BaseModel):
+    role: str
+    mandays: float
+
+
+class PlanPhase(BaseModel):
+    name: str
+    start_week: int
+    end_week: int
+    roles: list[PhaseRole]
+
+
 class EstimateResult(BaseModel):
     project_name: str
     project_summary: str
     core: CoreEstimate
     satellites: Satellites
     overall_reasoning: str = ""
+    roles: list[RoleEstimate] = []
+    plan_phases: list[PlanPhase] = []
 
 
 class FinancialSummary(BaseModel):

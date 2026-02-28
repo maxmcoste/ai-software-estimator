@@ -15,7 +15,7 @@ PRODUCE_ESTIMATE_TOOL = {
     ),
     "input_schema": {
         "type": "object",
-        "required": ["project_name", "project_summary", "core", "satellites", "overall_reasoning"],
+        "required": ["project_name", "project_summary", "core", "satellites", "overall_reasoning", "roles", "plan_phases"],
         "properties": {
             "project_name": {"type": "string"},
             "project_summary": {"type": "string", "description": "2-3 sentence executive summary of the project"},
@@ -74,6 +74,43 @@ PRODUCE_ESTIMATE_TOOL = {
                     "base_fcu_mandays": {"type": "number", "description": "Sum before scalability multiplier"},
                     "total_mandays": {"type": "number", "description": "(base_fcu_mandays * scalability_multiplier) + sum(spike mandays)"},
                     "reasoning": {"type": "string"}
+                }
+            },
+            "roles": {
+                "type": "array",
+                "description": "All human roles required. Map every manday from Core and active Satellites to a named role. Sum of all role mandays must equal grand total mandays.",
+                "items": {
+                    "type": "object",
+                    "required": ["role", "mandays", "description"],
+                    "properties": {
+                        "role": {"type": "string", "description": "e.g. 'Backend Developer', 'Project Manager', 'Solution Architect', 'QA Engineer', 'UX Designer'"},
+                        "mandays": {"type": "number"},
+                        "description": {"type": "string", "description": "What this role does on this specific project"}
+                    }
+                }
+            },
+            "plan_phases": {
+                "type": "array",
+                "description": "Sequential project phases. Weeks are 1-indexed. Phases may overlap. Allocate mandays to roles per phase.",
+                "items": {
+                    "type": "object",
+                    "required": ["name", "start_week", "end_week", "roles"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "start_week": {"type": "integer", "description": "1-indexed week when phase starts"},
+                        "end_week": {"type": "integer", "description": "Inclusive week when phase ends"},
+                        "roles": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": ["role", "mandays"],
+                                "properties": {
+                                    "role": {"type": "string"},
+                                    "mandays": {"type": "number", "description": "Mandays allocated to this role in this phase"}
+                                }
+                            }
+                        }
+                    }
                 }
             },
             "satellites": {
@@ -160,7 +197,9 @@ STRICT RULES:
 7. Base FCU mandays = sum of all data entity mandays + sum of API integration mandays + business_logic_mandays.
 8. Total core mandays = (base_fcu_mandays × scalability_multiplier) + sum of all spike mandays.
 9. Return ONLY the tool call — no prose, no explanation outside the structured output.
-10. Use realistic manday estimates: a simple CRUD entity ≈ 1-3 mandays; a complex integration ≈ 3-8 mandays."""
+10. Use realistic manday estimates: a simple CRUD entity ≈ 1-3 mandays; a complex integration ≈ 3-8 mandays.
+11. Produce a complete `roles` list: map ALL mandays from Core and every active Satellite to specific named roles (e.g. Backend Developer, Tech Lead, Solution Architect, Project Manager, QA Engineer, UX Designer, Security Engineer, DevOps Engineer). The sum of all role mandays must match the grand total.
+12. Produce a `plan_phases` list as a realistic sequential schedule in weeks (week 1 = project start). Each phase contains the roles active in that phase with their allocated mandays for that phase. Total mandays per role across all phases should match the role totals."""
 
 
 def build_user_prompt(model_md: str, requirements_md: str, repo_summary: str | None) -> str:
@@ -271,6 +310,7 @@ The user may ask you to:
 RULES:
 - When the user requests a CHANGE: call the `produce_estimate` tool with the COMPLETE updated estimate (all fields). Recompute base_fcu_mandays and total_mandays correctly after any change.
 - When the user asks a QUESTION or wants EXPLANATION: reply with plain text — do NOT call the tool.
+- When updating the estimate, also update `roles` and `plan_phases` to reflect the changes.
 - Be concise and precise.
 
 ## Current Estimate

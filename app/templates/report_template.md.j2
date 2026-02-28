@@ -38,6 +38,34 @@
 
 ---
 
+## Team & Roles
+
+{% if estimate.roles %}
+| Role | Mandays | Responsibilities |
+|:---|---:|:---|
+{% for r in estimate.roles %}
+| {{ r.role }} | {{ "%.1f"|format(r.mandays) }} | {{ r.description }} |
+{% endfor %}
+{% else %}
+*No role breakdown available.*
+{% endif %}
+
+---
+
+## Project Plan
+
+{% if estimate.plan_phases %}
+| Phase | Timeline | Roles Involved |
+|:---|:---|:---|
+{% for phase in estimate.plan_phases %}
+| **{{ phase.name }}** | Week {{ phase.start_week }}–{{ phase.end_week }} | {% for r in phase.roles %}{{ r.role }} ({{ "%.1f"|format(r.mandays) }} md){% if not loop.last %}, {% endif %}{% endfor %} |
+{% endfor %}
+{% else %}
+*No project plan available.*
+{% endif %}
+
+---
+
 ## Core: Functional Complexity
 
 **Scalability Tier:** {{ estimate.core.scalability_tier | upper }}
