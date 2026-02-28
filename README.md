@@ -428,4 +428,4 @@ python-multipart, markdown2, python-dotenv, httpx
 
 Apache License 2.0 — see [LICENSE](LICENSE) for the full text.
 
-Copyright 2026 Massimiliano Del Vecchi
+Copyright 2026 Massimo Del Vecchio
