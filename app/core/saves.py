@@ -80,6 +80,19 @@ def finalize_save(save_id: str) -> Optional[dict]:
     return data
 
 
+def update_save(save_id: str, report_markdown: str, estimate_data: dict, financials_data: dict) -> Optional[dict]:
+    """Update an existing draft save. Returns None if not found or finalized."""
+    data = get_save(save_id)
+    if data is None or data["status"] == "final":
+        return None
+    data["report_markdown"] = report_markdown
+    data["estimate_data"] = estimate_data
+    data["financials_data"] = financials_data
+    data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    _path(save_id).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    return data
+
+
 def delete_save(save_id: str) -> bool:
     """Delete only if draft. Returns True on success."""
     data = get_save(save_id)

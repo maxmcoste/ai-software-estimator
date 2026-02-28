@@ -12,6 +12,7 @@
   const detailReport    = document.getElementById('detail-report');
   const detailBadge     = document.getElementById('detail-status-badge');
   const detailDownload  = document.getElementById('detail-download-btn');
+  const detailChange    = document.getElementById('detail-change-btn');
   const detailFinalize  = document.getElementById('detail-finalize-btn');
   const detailDelete    = document.getElementById('detail-delete-btn');
   const confirmModal    = document.getElementById('confirm-modal');
@@ -95,6 +96,7 @@
     const isFinal = data.status === 'final';
     detailBadge.textContent  = isFinal ? '🔒 Final' : '✏️ Draft';
     detailBadge.className    = `status-badge status-${data.status}`;
+    detailChange.classList.toggle('hidden', isFinal);
     detailFinalize.classList.toggle('hidden', isFinal);
     detailDelete.classList.toggle('hidden', isFinal);
 
@@ -108,6 +110,23 @@
     detailView.classList.add('hidden');
     listView.classList.remove('hidden');
     currentSave = null;
+  });
+
+  // ── Change (open draft for editing) ───────────────────────────────────────
+  detailChange.addEventListener('click', async () => {
+    if (!currentSave) return;
+    detailChange.disabled = true;
+    detailChange.textContent = 'Opening…';
+
+    const res = await fetch(`/api/saves/${currentSave.save_id}/open`, { method: 'POST' });
+    if (!res.ok) {
+      alert('Could not open estimate for editing.');
+      detailChange.disabled = false;
+      detailChange.textContent = 'Change';
+      return;
+    }
+    const { job_id, save_id } = await res.json();
+    window.location.href = `/?job=${job_id}&save=${save_id}`;
   });
 
   // ── Download ──────────────────────────────────────────────────────────────

@@ -19,6 +19,16 @@
   const estimationProgressWrap = document.getElementById('estimation-progress-wrap');
   const uploadPct              = document.getElementById('upload-pct');
   const uploadBarFill          = document.getElementById('upload-bar-fill');
+  const requirementsPanel      = document.getElementById('requirements-panel');
+  const reqPanelBody           = document.getElementById('req-panel-body');
+  const reqPanelToggle         = document.getElementById('req-panel-toggle');
+  const reqPanelContent        = document.getElementById('req-panel-content');
+  const reqEditBtn             = document.getElementById('req-edit-btn');
+  const reqPreviewWrap         = document.getElementById('req-preview-wrap');
+  const reqEditWrap            = document.getElementById('req-edit-wrap');
+  const reqEditTextarea        = document.getElementById('req-edit-textarea');
+  const reqFileInput           = document.getElementById('req-file-input');
+  const reqFileLoaded          = document.getElementById('req-file-loaded');
 
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -49,9 +59,61 @@
   // New estimate button
   newEstBtn.addEventListener('click', resetUI);
 
+  // Requirements panel — show/hide toggle
+  reqPanelToggle.addEventListener('click', () => {
+    const isHidden = reqPanelBody.classList.toggle('hidden');
+    reqPanelToggle.textContent = isHidden ? 'Show' : 'Hide';
+  });
+
+  // Requirements panel — edit/preview toggle
+  reqEditBtn.addEventListener('click', () => {
+    const editing = !reqEditWrap.classList.contains('hidden');
+    if (editing) {
+      // Switch back to preview; re-render whatever is in the textarea
+      const text = reqEditTextarea.value;
+      reqPanelContent.innerHTML = marked.parse(text);
+      requirementsModified = text !== rawRequirementsText;
+      updateRerunConfirmBtn();
+      reqPreviewWrap.classList.remove('hidden');
+      reqEditWrap.classList.add('hidden');
+      reqEditBtn.textContent = requirementsModified ? 'Edit ●' : 'Edit';
+    } else {
+      // Ensure body is visible, populate textarea if empty
+      reqPanelBody.classList.remove('hidden');
+      reqPanelToggle.textContent = 'Hide';
+      if (!reqEditTextarea.value) reqEditTextarea.value = rawRequirementsText;
+      reqPreviewWrap.classList.add('hidden');
+      reqEditWrap.classList.remove('hidden');
+      reqEditBtn.textContent = 'Preview';
+    }
+  });
+
+  // Requirements panel — load new file
+  reqFileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      reqEditTextarea.value = ev.target.result;
+      reqFileLoaded.textContent = file.name;
+      requirementsModified = true;
+      updateRerunConfirmBtn();
+    };
+    reader.readAsText(file);
+  });
+
+  // Track modifications as the user types
+  reqEditTextarea.addEventListener('input', () => {
+    requirementsModified = reqEditTextarea.value !== rawRequirementsText;
+    updateRerunConfirmBtn();
+  });
+
   // ── State ───────────────────────────────────────────────────────────────
-  let currentJobId    = null;
-  let pollTimer       = null;
+  let currentJobId         = null;
+  let currentSaveId        = null;
+  let rawRequirementsText  = '';
+  let requirementsModified = false;
+  let pollTimer            = null;
   let elapsedTimer    = null;
   let elapsedSeconds  = 0;
   let lastLogMessage  = null;
@@ -67,6 +129,7 @@
     clearInterval(pollTimer);
     clearInterval(elapsedTimer);
     currentJobId   = null;
+    currentSaveId  = null;
     rawMarkdown    = '';
     elapsedSeconds = 0;
     lastLogMessage = null;
@@ -77,6 +140,18 @@
     submitBtn.disabled = false;
     reportDiv.innerHTML = '';
     document.querySelector('.container').classList.remove('wide');
+    // Reset requirements panel
+    rawRequirementsText  = '';
+    requirementsModified = false;
+    requirementsPanel.classList.add('hidden');
+    reqPanelBody.classList.add('hidden');
+    reqPanelContent.innerHTML = '';
+    reqPanelToggle.textContent = 'Show';
+    reqEditBtn.textContent = 'Edit';
+    reqEditTextarea.value = '';
+    reqFileLoaded.textContent = '';
+    reqPreviewWrap.classList.remove('hidden');
+    reqEditWrap.classList.add('hidden');
     // Reset save
     savePanel.classList.add('hidden');
     saveNameInput.value = '';
@@ -305,6 +380,22 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawMarkdown = await res.text();
       showResult(rawMarkdown);
+      // Sync requirements panel if it was modified for this re-run
+      if (requirementsModified && reqEditTextarea.value.trim()) {
+        rawRequirementsText = reqEditTextarea.value.trim();
+        requirementsModified = false;
+        reqEditBtn.textContent = 'Edit';
+        // Switch back to preview with updated content
+        reqPanelContent.innerHTML = marked.parse(rawRequirementsText);
+        reqPreviewWrap.classList.remove('hidden');
+        reqEditWrap.classList.add('hidden');
+        updateRerunConfirmBtn();
+      }
+      // Re-enable "Update draft" after a re-run completes
+      if (currentSaveId) {
+        saveBtn.textContent = 'Update draft';
+        saveBtn.disabled = false;
+      }
     } catch (err) {
       showError('Report ready but could not be loaded: ' + err.message);
       submitBtn.disabled = false;
@@ -320,14 +411,15 @@
     link.click();
   });
 
-  // ── Save ──────────────────────────────────────────────────────────────────
+  // ── Save / Update draft ───────────────────────────────────────────────────
   const saveBtn        = document.getElementById('save-btn');
   const savePanel      = document.getElementById('save-panel');
   const saveNameInput  = document.getElementById('save-name-input');
   const saveConfirmBtn = document.getElementById('save-confirm-btn');
   const saveCancelBtn  = document.getElementById('save-cancel-btn');
 
-  saveBtn.addEventListener('click', () => {
+  saveBtn.addEventListener('click', async () => {
+    if (currentSaveId) { await updateDraft(); return; }
     savePanel.classList.toggle('hidden');
     if (!savePanel.classList.contains('hidden')) saveNameInput.focus();
   });
@@ -365,6 +457,33 @@
     if (e.key === 'Escape') saveCancelBtn.click();
   });
 
+  async function updateDraft() {
+    if (!currentJobId || !currentSaveId) return;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try {
+      const res = await fetch(`/api/saves/${currentSaveId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: currentJobId }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.detail ?? `HTTP ${res.status}`);
+      }
+      saveBtn.textContent = 'Updated ✓';
+    } catch (err) {
+      showError('Update failed: ' + err.message);
+      saveBtn.textContent = 'Update draft';
+      saveBtn.disabled = false;
+    }
+  }
+
+  function updateRerunConfirmBtn() {
+    const hasNewModel = !!(rerunModelFile && rerunModelFile.files[0]);
+    rerunConfirmBtn.disabled = !hasNewModel && !requirementsModified;
+  }
+
   // ── Re-run with new model ────────────────────────────────────────────────
   const rerunToggleBtn  = document.getElementById('rerun-toggle-btn');
   const rerunPanel      = document.getElementById('rerun-panel');
@@ -379,12 +498,13 @@
   rerunModelFile.addEventListener('change', e => {
     const file = e.target.files[0];
     rerunFileName.textContent = file?.name ?? '';
-    rerunConfirmBtn.disabled = !file;
+    updateRerunConfirmBtn();
   });
 
   rerunConfirmBtn.addEventListener('click', async () => {
+    if (!currentJobId) return;
     const file = rerunModelFile.files[0];
-    if (!file || !currentJobId) return;
+    if (!file && !requirementsModified) return;
 
     rerunConfirmBtn.disabled = true;
     rerunToggleBtn.disabled  = true;
@@ -393,11 +513,14 @@
     // Transition to progress view (reuse existing infrastructure)
     resultSec.classList.add('hidden');
     document.querySelector('.container').classList.remove('wide');
-    uploadTransitionedGlobal = false;
     showUploadProgress();
 
     const fd = new FormData();
-    fd.append('model_file', file);
+    if (file) fd.append('rerun_model', file);
+    // Include edited requirements if modified (textarea wins over file input)
+    if (requirementsModified && reqEditTextarea.value.trim()) {
+      fd.append('rerun_requirements_text', reqEditTextarea.value.trim());
+    }
 
     const xhr = new XMLHttpRequest();
     let uploadTransitioned = false;
@@ -497,6 +620,11 @@
       if (data.estimate_updated && data.report_markdown) {
         reportDiv.innerHTML = marked.parse(data.report_markdown);
         reportDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Re-enable "Update draft" so the user can sync the change
+        if (currentSaveId) {
+          saveBtn.textContent = 'Update draft';
+          saveBtn.disabled = false;
+        }
       }
     } catch (err) {
       chatThinking.classList.add('hidden');
@@ -515,5 +643,51 @@
       sendChatMessage();
     }
   });
+
+  // ── Restore from URL params (?job=...&save=...) ───────────────────────────
+  async function restoreJobFromUrl(jobId, saveId) {
+    currentJobId  = jobId;
+    currentSaveId = saveId;
+    formSection.classList.add('hidden');
+    document.querySelector('.container').classList.add('wide');
+
+    // Clean URL so a reload doesn't re-restore a stale job
+    history.replaceState(null, '', '/');
+
+    try {
+      // Fetch job context (requirements, save name)
+      const ctxRes = await fetch(`/api/estimate/${jobId}/context`);
+      if (ctxRes.ok) {
+        const ctx = await ctxRes.json();
+        currentSaveId = ctx.save_id || saveId;
+
+        if (ctx.requirements_md) {
+          rawRequirementsText = ctx.requirements_md;
+          reqPanelContent.innerHTML = marked.parse(ctx.requirements_md);
+          requirementsPanel.classList.remove('hidden');
+        }
+      }
+
+      // Update Save button to "Update draft"
+      if (currentSaveId) {
+        saveBtn.textContent = 'Update draft';
+      }
+
+      // Fetch and display the report
+      const reportRes = await fetch(`/api/estimate/${jobId}/report`);
+      if (!reportRes.ok) throw new Error(`HTTP ${reportRes.status}`);
+      rawMarkdown = await reportRes.text();
+      showResult(rawMarkdown);
+    } catch (err) {
+      showError('Could not restore estimation session: ' + err.message);
+      formSection.classList.remove('hidden');
+      document.querySelector('.container').classList.remove('wide');
+    }
+  }
+
+  const _p = new URLSearchParams(window.location.search);
+  const _job  = _p.get('job');
+  const _save = _p.get('save');
+  if (_job) restoreJobFromUrl(_job, _save);
 
 })();

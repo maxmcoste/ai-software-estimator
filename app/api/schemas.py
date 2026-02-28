@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -42,3 +42,21 @@ class ChatResponse(BaseModel):
     reply: str
     estimate_updated: bool
     report_markdown: Optional[str] = None
+
+
+class OpenSaveResponse(BaseModel):
+    job_id: str
+    save_id: str
+    name: str
+
+
+class UpdateSaveRequest(BaseModel):
+    job_id: str
+
+
+class JobContextResponse(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+    requirements_md: str
+    model_md: str
+    save_id: Optional[str] = None
+    save_name: Optional[str] = None

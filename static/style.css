@@ -749,5 +749,67 @@ textarea { resize: vertical; }
 .modal p { margin-bottom: 1.5rem; line-height: 1.6; }
 .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
 
+/* ── Requirements panel ───────────────────────────────────────────────────── */
+.req-panel {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.req-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 1.1rem;
+}
+.req-panel-label {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.req-panel-actions { display: flex; gap: 0.4rem; }
+.btn-sm {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.65rem;
+}
+.req-panel-body {
+  border-top: 1px solid var(--border);
+}
+.req-panel-md {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+.req-edit-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.req-edit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+.req-edit-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: none;
+  border-radius: 0;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+  padding: 0.85rem 1rem;
+  resize: vertical;
+  outline: none;
+}
+.req-edit-textarea:focus { outline: none; }
+
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

@@ -27,6 +27,7 @@ class Job:
     model_md: str = ""
     repo_summary: Optional[str] = None
     chat_history: list = field(default_factory=list)
+    save_id: Optional[str] = None        # set when job is restored from a saved estimate
 
 
 def create_job() -> Job:

@@ -130,8 +130,38 @@
               <div class="result-actions">
                 <button id="download-btn" class="btn-secondary">Download .md</button>
                 <button id="save-btn" class="btn-outline">Save</button>
-                <button id="rerun-toggle-btn" class="btn-outline">Re-run with new model</button>
+                <button id="rerun-toggle-btn" class="btn-outline">Re-run estimation</button>
                 <button id="new-estimate-btn" class="btn-outline">New Estimate</button>
+              </div>
+            </div>
+
+            <!-- Requirements panel (visible only when opened from a draft) -->
+            <div id="requirements-panel" class="req-panel hidden">
+              <div class="req-panel-header">
+                <span class="req-panel-label">Requirements</span>
+                <div class="req-panel-actions">
+                  <button id="req-edit-btn" type="button" class="btn-outline btn-sm">Edit</button>
+                  <button id="req-panel-toggle" type="button" class="btn-outline btn-sm">Show</button>
+                </div>
+              </div>
+              <div id="req-panel-body" class="req-panel-body hidden">
+                <!-- Preview mode -->
+                <div id="req-preview-wrap">
+                  <div id="req-panel-content" class="markdown-body req-panel-md"></div>
+                </div>
+                <!-- Edit mode -->
+                <div id="req-edit-wrap" class="req-edit-wrap hidden">
+                  <div class="req-edit-toolbar">
+                    <label class="file-pick-btn btn-sm">
+                      Load new file…
+                      <input type="file" id="req-file-input" accept=".md,.txt,.markdown" />
+                    </label>
+                    <span id="req-file-loaded" class="file-name"></span>
+                  </div>
+                  <textarea id="req-edit-textarea" class="req-edit-textarea"
+                    rows="14" spellcheck="false"
+                    placeholder="Paste or edit your requirements here…"></textarea>
+                </div>
               </div>
             </div>
 
@@ -147,7 +177,7 @@
 
             <!-- Re-run panel -->
             <div id="rerun-panel" class="rerun-panel hidden">
-              <span class="rerun-label">Upload a new estimation model to re-run with the same requirements:</span>
+              <span class="rerun-label">Optionally upload a new estimation model (.md):</span>
               <div class="rerun-controls">
                 <label class="file-pick-btn">
                   Select model (.md)…

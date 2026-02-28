@@ -33,8 +33,9 @@ An AI-powered web application that produces detailed software project estimates 
 | **Custom estimation model** | Override the built-in model by uploading any `.md` file. Useful for client-specific methodologies or translated versions of the model. |
 | **Financial breakdown** | Configurable manday rate and currency (EUR, USD, GBP, CHF). All costs are computed as `mandays × rate` after the AI returns its structured output. |
 | **AI chat refinement** | After an estimate is generated, a chat panel lets you ask Claude to explain any choice or override specific values. The report refreshes live when changes are applied. |
-| **Re-run with new model** | Upload a different estimation model and re-run the estimation from the results page — GitHub analysis is reused, no re-fetch required. |
+| **Re-run estimation** | From the results page, re-run the estimation with a new model file, updated requirements, or both — GitHub analysis is reused automatically. |
 | **Save & History** | Save any estimate as a **draft** and access it later from the History page. Finalize a draft to freeze it permanently. |
+| **Change a draft** | Open any saved draft for editing: refine the estimate via AI chat, edit or replace the requirements document, swap the estimation model, then sync the changes back to the draft with **Update draft**. |
 | **Live progress log** | An activity log and elapsed timer keep the user informed throughout the 30–90 second Claude call. |
 | **Downloadable Markdown report** | Every estimate produces a `.md` report with executive summary table, per-satellite detail, and reasoning block. |
 
@@ -113,8 +114,8 @@ Estimate/
 │
 ├── static/
 │   ├── style.css                    # Dark theme (CSS variables, responsive)
-│   ├── app.js                       # Main page: form, XHR upload, polling, chat, save
-│   └── history.js                   # History page: list, detail view, finalize, delete
+│   ├── app.js                       # Main page: form, polling, chat, save, re-run, change
+│   └── history.js                   # History page: list, detail view, change, finalize, delete
 │
 ├── reports/                         # Generated .md reports — ephemeral, gitignored
 ├── saves/                           # Persisted estimates as JSON — gitignored
@@ -185,9 +186,15 @@ Once the report is displayed, a **"Refine with AI"** chat panel appears on the r
 
 `Enter` sends a message; `Shift+Enter` inserts a newline.
 
-### Re-running with a Different Model
+### Re-running the Estimation
 
-In the result header, click **Re-run with new model**. Select a new `.md` model file and click **Re-estimate**. The same requirements and GitHub analysis are reused — only the estimation model changes.
+In the result header, click **Re-run estimation** to open the re-run panel. You can:
+
+- **Change the estimation model** — upload a new `.md` model file.
+- **Change the requirements** — edit the requirements text inline or load a new file via the Requirements panel (see below).
+- **Change both** — combine a new model with updated requirements in the same re-run.
+
+The model file is optional — if omitted the current model is reused. GitHub analysis is always reused; no re-fetch is required.
 
 ### Saving and Managing Estimates
 
@@ -196,6 +203,7 @@ In the result header, click **Re-run with new model**. Select a new `.md` model 
 3. Click a card to open the full report.
 4. From the detail view:
    - **Download .md** — saves the report file locally.
+   - **Change** — opens the draft for editing (drafts only — see below).
    - **Finalize** — locks the estimate permanently. Finalized estimates cannot be modified or deleted.
    - **Delete** — removes the draft (not available for finalized estimates).
 
@@ -203,9 +211,19 @@ In the result header, click **Re-run with new model**. Select a new `.md` model 
 |:---|:---:|:---:|
 | View report | ✓ | ✓ |
 | Download .md | ✓ | ✓ |
+| Change | ✓ | ✗ |
 | Finalize | ✓ | — |
 | Delete | ✓ | ✗ |
-| Modify (chat / re-run) | active session only | ✗ |
+
+### Changing a Draft
+
+Clicking **Change** on a draft in the History page opens it in an editing session on the main page:
+
+- The **Estimation Report** is displayed immediately — no re-estimation needed.
+- The **Refine with AI** chat panel is ready to use. Ask Claude to adjust any value; the report refreshes live.
+- The **Requirements** panel (below the report header) shows the saved requirements. Click **Edit** to switch to an editable textarea where you can modify the text directly or click **Load new file…** to replace it entirely with a new `.md` file. Click **Preview** to return to the rendered view (a `●` indicator appears when the requirements have been modified).
+- Click **Re-run estimation** to re-run Claude with the current or updated requirements and/or a new model file.
+- Click **Update draft** to sync all changes (chat edits, re-run results) back to the saved draft file.
 
 ---
 
@@ -273,8 +291,9 @@ The initial Claude call retries up to 3 times with exponential backoff (2s, 4s) 
 | `POST` | `/api/estimate` | Submit a new estimation job |
 | `GET` | `/api/estimate/{job_id}/status` | Poll job status and progress message |
 | `GET` | `/api/estimate/{job_id}/report` | Download the generated `.md` report |
+| `GET` | `/api/estimate/{job_id}/context` | Return requirements, model text, and save metadata for a job |
 | `POST` | `/api/estimate/{job_id}/chat` | Send a chat message to refine the estimate |
-| `POST` | `/api/estimate/{job_id}/rerun` | Re-run with a new estimation model file |
+| `POST` | `/api/estimate/{job_id}/rerun` | Re-run with optional new model and/or requirements |
 
 #### `POST /api/estimate` — multipart form fields
 
@@ -287,6 +306,16 @@ The initial Claude call retries up to 3 times with exponential backoff (2s, 4s) 
 | `github_token` | string | — | env `GITHUB_TOKEN` |
 | `manday_cost` | number | — | `500` |
 | `currency` | string | — | `EUR` |
+
+#### `POST /api/estimate/{job_id}/rerun` — multipart form fields
+
+All fields are optional. At least one change (model or requirements) should be provided; omitted fields fall back to the job's current values.
+
+| Field | Type | Description |
+|:---|:---|:---|
+| `rerun_model` | file | New estimation model `.md` file |
+| `rerun_requirements_file` | file | New requirements file (overrides text field) |
+| `rerun_requirements_text` | string | Updated requirements as plain text |
 
 #### `POST /api/estimate/{job_id}/chat` — JSON body
 
@@ -311,14 +340,32 @@ Status values: `pending` → `running` → `done` | `error`
 | `POST` | `/api/saves` | Save the current estimate as a draft |
 | `GET` | `/api/saves` | List all saved estimates (summary) |
 | `GET` | `/api/saves/{save_id}` | Get full save detail including report markdown |
+| `POST` | `/api/saves/{save_id}/open` | Load a draft into an in-memory job for editing; returns `job_id` |
+| `PUT` | `/api/saves/{save_id}` | Update a draft with the current state of a job |
 | `POST` | `/api/saves/{save_id}/finalize` | Finalize (lock) a draft |
-| `DELETE` | `/api/saves/{save_id}` | Delete a draft (not allowed for final) |
+| `DELETE` | `/api/saves/{save_id}` | Delete a draft (not allowed for finalized estimates) |
 
 #### `POST /api/saves` — JSON body
 
 ```json
 { "job_id": "uuid", "name": "CRM Project v1.2" }
 ```
+
+#### `PUT /api/saves/{save_id}` — JSON body
+
+```json
+{ "job_id": "uuid" }
+```
+
+Reads the current report, estimate data, and financials from the in-memory job and writes them to the save file. Returns the updated `SaveSummary`. Fails with `403` if the save is finalized.
+
+#### `POST /api/saves/{save_id}/open` — response
+
+```json
+{ "job_id": "uuid", "save_id": "uuid", "name": "CRM Project v1.2" }
+```
+
+Creates a new in-memory job pre-populated with the saved estimate data. The returned `job_id` can be used immediately with the chat, rerun, and report endpoints.
 
 ---
 
