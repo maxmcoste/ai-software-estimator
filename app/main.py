@@ -27,6 +27,15 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.ANTHROPIC_API_KEY:
         logger.warning("ANTHROPIC_API_KEY is not set — estimations will fail until configured via /settings")
+    # Purge stale report files from previous sessions (jobs are in-memory only)
+    reports_dir = settings.REPORTS_DIR
+    if reports_dir.exists():
+        removed = 0
+        for f in reports_dir.glob("*.md"):
+            f.unlink()
+            removed += 1
+        if removed:
+            logger.info("Cleaned up %d stale report file(s) from %s", removed, reports_dir)
     logger.info("Estimate app started. ANTHROPIC_API_KEY is set.")
     yield
 
