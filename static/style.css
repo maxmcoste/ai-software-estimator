@@ -970,6 +970,77 @@ details.satellite-section[open] > summary {
   border: 1px solid var(--border);
 }
 
+/* ── Settings page ────────────────────────────────────────────────────────── */
+.key-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.key-field input {
+  flex: 1;
+  min-width: 260px;
+}
+.key-hint {
+  font-size: 0.8rem;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.key-set   { color: var(--success); }
+.key-unset { color: var(--danger); }
+.settings-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+}
+.settings-feedback {
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+}
+.feedback-ok    { background: rgba(74,222,128,0.1);  border: 1px solid var(--success); color: var(--success); }
+.feedback-error { background: rgba(248,113,113,0.1); border: 1px solid var(--danger);  color: var(--danger);  }
+
+/* ── Model validation warning ─────────────────────────────────────────────── */
+.model-warning {
+  border-radius: 8px;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  margin-top: 0.75rem;
+  padding: 0.7rem 1rem;
+}
+.model-warning.warning-error {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.model-warning.warning-soft {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid #fbbf24;
+  color: #fbbf24;
+}
+.model-warning ul {
+  margin: 0.35rem 0 0 1.1rem;
+  padding: 0;
+}
+.model-warning li { margin: 0.1rem 0; }
+.model-warning .model-warning-ack-wrap {
+  border-top: 1px solid currentColor;
+  margin-top: 0.6rem;
+  opacity: 0.9;
+  padding-top: 0.5rem;
+}
+@keyframes warning-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.model-warning-shake { animation: warning-shake 0.4s ease; }
+
 /* ── Cost Overview checkboxes ─────────────────────────────────────────────── */
 .cost-cb-col {
   width: 36px;

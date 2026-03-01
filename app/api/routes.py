@@ -12,6 +12,7 @@ from app.api.schemas import (
     SaveRequest, SaveSummary, SaveDetail,
     OpenSaveResponse, UpdateSaveRequest, JobContextResponse,
     PlanResponse, RoleEstimateSchema, PlanPhaseSchema,
+    SettingsResponse, SettingsUpdateRequest,
 )
 from app.core import estimator, saves as saves_store
 from app.core import claude_client, report_generator
@@ -19,6 +20,36 @@ from app.dependencies import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
+
+
+# ── Settings helpers ──────────────────────────────────────────────────────────
+
+def _mask_key(value: str) -> str:
+    """Return last-4-chars hint, e.g. '****a1b2'. Empty string if not set."""
+    if not value:
+        return ""
+    return "****" + value[-4:]
+
+
+def _update_env(updates: dict[str, str]) -> None:
+    """Write key=value pairs into .env, adding lines if not already present."""
+    from pathlib import Path
+    env_path = Path(".env")
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    updated: set[str] = set()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for key, value in updates.items():
+            if stripped.startswith(f"{key}="):
+                lines[i] = f"{key}={value}"
+                updated.add(key)
+                break
+    for key, value in updates.items():
+        if key not in updated:
+            lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 @router.post("/estimate", response_model=EstimateJobResponse)
@@ -366,6 +397,32 @@ def chat(job_id: str, req: ChatRequest):
         report_markdown = report_path.read_text(encoding="utf-8")
 
     return ChatResponse(reply=reply, estimate_updated=updated_estimate is not None, report_markdown=report_markdown)
+
+
+@router.get("/settings", response_model=SettingsResponse)
+async def read_settings():
+    """Return masked hints for currently configured keys."""
+    s = get_settings()
+    return SettingsResponse(
+        anthropic_api_key_set=bool(s.ANTHROPIC_API_KEY),
+        anthropic_api_key_hint=_mask_key(s.ANTHROPIC_API_KEY),
+        github_token_set=bool(s.GITHUB_TOKEN),
+        github_token_hint=_mask_key(s.GITHUB_TOKEN),
+    )
+
+
+@router.post("/settings")
+async def write_settings(req: SettingsUpdateRequest):
+    """Persist non-empty values to .env and reload the settings cache."""
+    updates: dict[str, str] = {}
+    if req.anthropic_api_key:
+        updates["ANTHROPIC_API_KEY"] = req.anthropic_api_key
+    if req.github_token:
+        updates["GITHUB_TOKEN"] = req.github_token
+    if updates:
+        _update_env(updates)
+        get_settings.cache_clear()
+    return {"ok": True}
 
 
 @router.get("/estimate/{job_id}/report")

@@ -29,6 +29,10 @@
   const reqEditTextarea        = document.getElementById('req-edit-textarea');
   const reqFileInput           = document.getElementById('req-file-input');
   const reqFileLoaded          = document.getElementById('req-file-loaded');
+  const modelWarning           = document.getElementById('model-warning');
+  const modelWarningAck        = document.getElementById('model-warning-ack');
+  const rerunModelWarning      = document.getElementById('rerun-model-warning');
+  const rerunModelWarningAck   = document.getElementById('rerun-model-warning-ack');
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -44,8 +48,52 @@
     document.getElementById('req-file-name').textContent = e.target.files[0]?.name ?? '';
   });
   document.getElementById('estimation_model_file').addEventListener('change', e => {
-    document.getElementById('model-file-name').textContent = e.target.files[0]?.name ?? '';
+    const file = e.target.files[0];
+    document.getElementById('model-file-name').textContent = file?.name ?? '';
+    if (!file) { modelWarning.className = 'model-warning hidden'; return; }
+    const reader = new FileReader();
+    reader.onload = ev => applyModelWarning(modelWarning, modelWarningAck, validateModelFile(ev.target.result));
+    reader.readAsText(file);
   });
+
+  // ── Model file validation helpers ────────────────────────────────────────
+  function validateModelFile(text) {
+    const hard = [], soft = [];
+    if (text.length < 800)
+      hard.push('File is too short — likely not a complete estimation model');
+    if (!/(?:^#{1,3}[^\n]*\bcore\b|\*\*[^*]*\bcore\b[^*]*\*\*)/im.test(text))
+      hard.push('"Core" section not found (expected as a heading or bold term)');
+    const satCount = (text.match(/\bsatellit/gi) || []).length;
+    if (satCount < 4)
+      hard.push(`"Satellite" keyword found ${satCount} time(s) — expected 4 or more`);
+    if (!/\bPM\b|\bproject[\s-]?manag/i.test(text))
+      soft.push('PM & Orchestration satellite not detected');
+    if (!/\barchitect/i.test(text))
+      soft.push('Solution Architecture satellite not detected');
+    if (!/\bcybersec|\bsicurezza/i.test(text))
+      soft.push('Cybersecurity satellite not detected');
+    if (!/\bUX\b|\bdigital[\s-]?experience|\besperienza[\s-]?digit/i.test(text))
+      soft.push('Digital Experience satellite not detected');
+    if (!/\bquality[\s-]?assurance|\bQA\b/i.test(text))
+      soft.push('Quality Assurance satellite not detected');
+    return { hard, soft };
+  }
+
+  function applyModelWarning(warningEl, ackEl, issues) {
+    const hasHard = issues.hard.length > 0;
+    const hasSoft = issues.soft.length > 0;
+    if (!hasHard && !hasSoft) { warningEl.className = 'model-warning hidden'; return; }
+    warningEl.className = 'model-warning ' + (hasHard ? 'warning-error' : 'warning-soft');
+    const title = hasHard
+      ? '⚠ This file may not be a valid Core &amp; Satellites model'
+      : 'ℹ Some satellites were not explicitly detected';
+    const allIssues = [...issues.hard, ...issues.soft];
+    const list = '<ul>' + allIssues.map(i => `<li>${i}</li>`).join('') + '</ul>';
+    warningEl.querySelector('.model-warning-msg').innerHTML = `<strong>${title}</strong>${list}`;
+    const ackWrap = warningEl.querySelector('.model-warning-ack-wrap');
+    ackWrap.classList.toggle('hidden', !hasHard);
+    if (ackEl) ackEl.checked = false;
+  }
 
   // Default model toggle
   document.getElementById('use-default-model').addEventListener('change', e => {
@@ -162,6 +210,10 @@
     reqFileLoaded.textContent = '';
     reqPreviewWrap.classList.remove('hidden');
     reqEditWrap.classList.add('hidden');
+    // Reset model warning
+    modelWarning.className = 'model-warning hidden';
+    modelWarning.querySelector('.model-warning-msg').innerHTML = '';
+    modelWarningAck.checked = false;
     // Reset cost table state
     currentRowInclusions = {};
     _costTableHandle     = null;
@@ -271,6 +323,16 @@
     }
     if (!useUpload && !reqText) {
       showError('Please paste your project requirements.');
+      return;
+    }
+
+    // Gate on unacknowledged hard model warning
+    if (!modelWarning.classList.contains('hidden') &&
+        modelWarning.classList.contains('warning-error') &&
+        !modelWarningAck.checked) {
+      modelWarning.classList.add('model-warning-shake');
+      modelWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => modelWarning.classList.remove('model-warning-shake'), 450);
       return;
     }
 
@@ -517,12 +579,27 @@
     const file = e.target.files[0];
     rerunFileName.textContent = file?.name ?? '';
     updateRerunConfirmBtn();
+    if (!file) { rerunModelWarning.className = 'model-warning hidden'; return; }
+    const reader = new FileReader();
+    reader.onload = ev => applyModelWarning(rerunModelWarning, rerunModelWarningAck, validateModelFile(ev.target.result));
+    reader.readAsText(file);
   });
 
   rerunConfirmBtn.addEventListener('click', async () => {
     if (!currentJobId) return;
     const file = rerunModelFile.files[0];
     if (!file && !requirementsModified) return;
+
+    // Gate on unacknowledged hard model warning
+    if (file &&
+        !rerunModelWarning.classList.contains('hidden') &&
+        rerunModelWarning.classList.contains('warning-error') &&
+        !rerunModelWarningAck.checked) {
+      rerunModelWarning.classList.add('model-warning-shake');
+      rerunModelWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => rerunModelWarning.classList.remove('model-warning-shake'), 450);
+      return;
+    }
 
     rerunConfirmBtn.disabled = true;
     rerunToggleBtn.disabled  = true;
