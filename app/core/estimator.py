@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 import uuid
 import logging
 from dataclasses import dataclass, field
@@ -87,6 +88,20 @@ def _compute_financials(result: EstimateResult, manday_cost: float, currency: st
     )
 
 
+def _validate_model_md(model_md: str) -> list[str]:
+    """Return warning strings for a model file that may not be Core & Satellites.
+    Empty list means all hard checks passed."""
+    warnings = []
+    if len(model_md) < 800:
+        warnings.append("model file is too short (< 800 chars) — may not be a complete estimation model")
+    if not re.search(r'(?:^#{1,3}[^\n]*\bcore\b|\*\*[^*]*\bcore\b[^*]*\*\*)', model_md, re.I | re.M):
+        warnings.append('"Core" section heading or emphasis not found')
+    sat_count = len(re.findall(r'\bsatellit', model_md, re.I))
+    if sat_count < 4:
+        warnings.append(f'"Satellite" keyword found {sat_count} time(s), expected ≥ 4')
+    return warnings
+
+
 def run_estimation(
     job_id: str,
     requirements_md: str,
@@ -104,6 +119,11 @@ def run_estimation(
 
     try:
         update_job(job_id, status="running", progress_message="Starting estimation…")
+
+        # Validate model markdown (backend safety net — frontend already warned the user)
+        model_issues = _validate_model_md(model_md)
+        if model_issues:
+            logger.warning("Job %s — model validation warnings: %s", job_id, "; ".join(model_issues))
 
         # Optional GitHub fetch (skip if a cached summary is provided)
         repo_summary: str | None = cached_repo_summary
