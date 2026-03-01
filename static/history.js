@@ -91,6 +91,8 @@
     detailName.textContent  = data.name;
     detailDates.textContent = `Created ${fmt(data.created_at)}  ·  Last updated ${fmt(data.updated_at)}`;
     detailReport.innerHTML  = marked.parse(data.report_markdown);
+    SatelliteAccordion.apply(detailReport);
+    CostTable.apply(detailReport, data.row_inclusions || {});
 
     const isFinal = data.status === 'final';
     detailBadge.textContent  = isFinal ? '🔒 Final' : '✏️ Draft';

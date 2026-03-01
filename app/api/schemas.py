@@ -15,6 +15,7 @@ class JobStatusResponse(BaseModel):
 class SaveRequest(BaseModel):
     job_id: str
     name: str
+    row_inclusions: dict[str, bool] = {}
 
 
 class SaveSummary(BaseModel):
@@ -60,6 +61,7 @@ class SaveDetail(SaveSummary):
     requirements_md: str
     roles: list[RoleEstimateSchema] = []
     plan_phases: list[PlanPhaseSchema] = []
+    row_inclusions: dict[str, bool] = {}
 
 
 class ChatRequest(BaseModel):
@@ -80,6 +82,7 @@ class OpenSaveResponse(BaseModel):
 
 class UpdateSaveRequest(BaseModel):
     job_id: str
+    row_inclusions: dict[str, bool] = {}
 
 
 class JobContextResponse(BaseModel):

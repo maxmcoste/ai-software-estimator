@@ -117,6 +117,8 @@
   let elapsedSeconds  = 0;
   let lastLogMessage  = null;
   let rawMarkdown     = '';
+  let currentRowInclusions = {};
+  let _costTableHandle     = null;
 
   // ── UI helpers ──────────────────────────────────────────────────────────
   function showError(msg) {
@@ -160,6 +162,9 @@
     reqFileLoaded.textContent = '';
     reqPreviewWrap.classList.remove('hidden');
     reqEditWrap.classList.add('hidden');
+    // Reset cost table state
+    currentRowInclusions = {};
+    _costTableHandle     = null;
     // Reset save
     savePanel.classList.add('hidden');
     saveNameInput.value = '';
@@ -244,6 +249,8 @@
   function showResult(markdown) {
     progressSec.classList.add('hidden');
     reportDiv.innerHTML = marked.parse(markdown);
+    SatelliteAccordion.apply(reportDiv);
+    _costTableHandle = CostTable.apply(reportDiv, currentRowInclusions);
     resultSec.classList.remove('hidden');
     document.querySelector('.container').classList.add('wide');
   }
@@ -445,7 +452,7 @@
       const res = await fetch('/api/saves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: currentJobId, name }),
+        body: JSON.stringify({ job_id: currentJobId, name, row_inclusions: _costTableHandle ? _costTableHandle.getInclusions() : {} }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -476,7 +483,7 @@
       const res = await fetch(`/api/saves/${currentSaveId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: currentJobId }),
+        body: JSON.stringify({ job_id: currentJobId, row_inclusions: _costTableHandle ? _costTableHandle.getInclusions() : {} }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -629,7 +636,10 @@
       appendChatBubble(data.reply, 'assistant', data.estimate_updated);
 
       if (data.estimate_updated && data.report_markdown) {
+        if (_costTableHandle) currentRowInclusions = _costTableHandle.getInclusions();
         reportDiv.innerHTML = marked.parse(data.report_markdown);
+        SatelliteAccordion.apply(reportDiv);
+        _costTableHandle = CostTable.apply(reportDiv, currentRowInclusions);
         reportDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // Re-enable "Update draft" so the user can sync the change
         if (currentSaveId) {
@@ -682,6 +692,13 @@
       // Update Save button to "Update draft"
       if (currentSaveId) {
         saveBtn.textContent = 'Update draft';
+        try {
+          const saveRes = await fetch(`/api/saves/${currentSaveId}`);
+          if (saveRes.ok) {
+            const saveData = await saveRes.json();
+            currentRowInclusions = saveData.row_inclusions || {};
+          }
+        } catch { /* ignore, use all-checked defaults */ }
       }
 
       // Fetch and display the report

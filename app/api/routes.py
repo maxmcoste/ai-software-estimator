@@ -102,6 +102,7 @@ async def create_save(req: SaveRequest):
         report_markdown=report_md,
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
+        row_inclusions=req.row_inclusions,
     )
     return SaveSummary(**{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at")},
                        project_name=data["estimate_data"].get("project_name", ""),
@@ -130,6 +131,7 @@ async def get_save(save_id: str):
         currency=data["financials_data"]["currency"],
         roles=estimate_data.get("roles", []),
         plan_phases=estimate_data.get("plan_phases", []),
+        row_inclusions=data.get("row_inclusions", {}),
     )
 
 
@@ -211,6 +213,7 @@ async def update_save(save_id: str, req: UpdateSaveRequest):
         report_markdown=report_md,
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
+        row_inclusions=req.row_inclusions,
     )
     if data is None:
         raise HTTPException(status_code=404, detail="Save not found or already finalized")
