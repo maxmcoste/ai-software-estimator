@@ -91,3 +91,15 @@ class JobContextResponse(BaseModel):
     model_md: str
     save_id: Optional[str] = None
     save_name: Optional[str] = None
+
+
+class SettingsResponse(BaseModel):
+    anthropic_api_key_set: bool
+    anthropic_api_key_hint: str
+    github_token_set: bool
+    github_token_hint: str
+
+
+class SettingsUpdateRequest(BaseModel):
+    anthropic_api_key: str = ""
+    github_token: str = ""
