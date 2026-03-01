@@ -67,7 +67,16 @@ Include il design logico e la gestione degli ambienti (Cloud/DevOps).
 
 ---
 
-### SATELLITE 3: Cybersecurity & Compliance
+### SATELLITE 3: Solution Architecture & Infrastructure
+Servizio richiesto per la gestione attiva degli stakeholder e la definizione dei processi.
+
+* **Metrica:** **Consulting Units (CU)**.
+* **Stima:** FTE dedicato (es. 0.5 o 1.0) x Durata.
+* **Quando usarlo:** Se il cliente non ha requisiti pronti o richiede un presidio costante nei workshop.
+
+---
+
+### SATELLITE 4: Cybersecurity & Compliance
 Basato sulla "superficie di attacco" e sulla sensibilità dei dati gestiti.
 
 * **Tier di Sensibilità:** * *Basic:* Dati pubblici.
@@ -80,7 +89,7 @@ Basato sulla "superficie di attacco" e sulla sensibilità dei dati gestiti.
 
 ---
 
-### SATELLITE 4: Digital Experience (DX)
+### SATELLITE 5: Digital Experience (DX)
 Basato sulla complessità dei percorsi utente, non sul numero di pagine.
 
 * **User Journey Complexity (UJC):** * *Simple:* Flussi lineari (Login).
@@ -92,7 +101,7 @@ Basato sulla complessità dei percorsi utente, non sul numero di pagine.
 
 ---
 
-### SATELLITE 5: Quality Assurance (QA)
+### SATELLITE 6: Quality Assurance (QA)
 Il "giudice" umano che valida l'output della GenAI.
 
 * **Verification Points (VP):** Punti di controllo su logica di business e contratti API.

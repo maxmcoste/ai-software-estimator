@@ -899,5 +899,186 @@ textarea { resize: vertical; }
   transform: translateY(0);
 }
 
+/* ── Satellite accordions ─────────────────────────────────────────────────── */
+details.satellite-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0.75rem 0;
+  overflow: hidden;
+}
+
+details.satellite-section > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--surface-alt);
+  user-select: none;
+}
+
+/* Remove default disclosure triangle across browsers */
+details.satellite-section > summary::-webkit-details-marker { display: none; }
+details.satellite-section > summary::marker { display: none; }
+
+/* Chevron via ::after, rotates 90° when open */
+details.satellite-section > summary::after {
+  content: '▶';
+  margin-left: auto;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+details.satellite-section[open] > summary::after {
+  transform: rotate(90deg);
+}
+
+details.satellite-section[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+
+.satellite-body {
+  padding: 0.5rem 1rem 1rem;
+}
+
+/* Status badge inside summary */
+.sat-badge {
+  display: inline-block;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.6rem;
+  flex-shrink: 0;
+}
+
+.sat-active {
+  background: rgba(74, 222, 128, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.sat-inactive {
+  background: rgba(136, 146, 164, 0.1);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Settings page ────────────────────────────────────────────────────────── */
+.key-field {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.key-field input {
+  flex: 1;
+  min-width: 260px;
+}
+.key-hint {
+  font-size: 0.8rem;
+  font-family: var(--mono);
+  flex-shrink: 0;
+}
+.key-set   { color: var(--success); }
+.key-unset { color: var(--danger); }
+.settings-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.6rem;
+}
+.settings-feedback {
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  padding: 0.75rem 1rem;
+}
+.feedback-ok    { background: rgba(74,222,128,0.1);  border: 1px solid var(--success); color: var(--success); }
+.feedback-error { background: rgba(248,113,113,0.1); border: 1px solid var(--danger);  color: var(--danger);  }
+.prompt-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  padding: 0.75rem 1rem;
+  resize: vertical;
+  margin-top: 0.5rem;
+}
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Model validation warning ─────────────────────────────────────────────── */
+.model-warning {
+  border-radius: 8px;
+  font-size: 0.83rem;
+  line-height: 1.5;
+  margin-top: 0.75rem;
+  padding: 0.7rem 1rem;
+}
+.model-warning.warning-error {
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+.model-warning.warning-soft {
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid #fbbf24;
+  color: #fbbf24;
+}
+.model-warning ul {
+  margin: 0.35rem 0 0 1.1rem;
+  padding: 0;
+}
+.model-warning li { margin: 0.1rem 0; }
+.model-warning .model-warning-ack-wrap {
+  border-top: 1px solid currentColor;
+  margin-top: 0.6rem;
+  opacity: 0.9;
+  padding-top: 0.5rem;
+}
+@keyframes warning-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.model-warning-shake { animation: warning-shake 0.4s ease; }
+
+/* ── Cost Overview checkboxes ─────────────────────────────────────────────── */
+.cost-cb-col {
+  width: 36px;
+  text-align: center !important;
+  padding: 0.45rem 0.5rem !important;
+}
+.cost-row-cb {
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+.markdown-body tr.cost-row-excluded td {
+  opacity: 0.38;
+  text-decoration: line-through;
+}
+.markdown-body tr.cost-row-excluded .cost-cb-col {
+  text-decoration: none;
+  opacity: 1;
+}
+
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }

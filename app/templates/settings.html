@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — AI Estimator</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <nav class="topnav">
+    <span class="topnav-brand">AI Estimator</span>
+    <div class="topnav-links">
+      <a href="/" class="topnav-link">New Estimate</a>
+      <a href="/history" class="topnav-link">Estimations</a>
+      <a href="/settings" class="topnav-link active">Settings</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <header>
+      <h1>Settings</h1>
+      <p class="subtitle">API keys and application configuration</p>
+    </header>
+
+    <main>
+      <form id="settings-form" novalidate>
+
+        <fieldset>
+          <legend>Claude API</legend>
+          <label for="anthropic_api_key">Anthropic API Key</label>
+          <div class="key-field">
+            <input type="password" id="anthropic_api_key" name="anthropic_api_key"
+              placeholder="Leave blank to keep current value" autocomplete="off" />
+            <span id="anthropic_hint" class="key-hint"></span>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>GitHub (optional)</legend>
+          <label for="github_token">Personal Access Token</label>
+          <div class="key-field">
+            <input type="password" id="github_token" name="github_token"
+              placeholder="Leave blank to keep current value" autocomplete="off" />
+            <span id="github_hint" class="key-hint"></span>
+          </div>
+          <p class="settings-note">Required only for private repositories. Public repos work without a token.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>Estimation System Prompt</legend>
+          <p class="settings-note">
+            Injected before the estimation model as the AI's main instruction set.
+            The estimation model document is always appended automatically after this text.
+          </p>
+          <textarea id="estimation_prompt" name="estimation_prompt" class="prompt-textarea"
+            rows="16" spellcheck="false" placeholder="Loading…"></textarea>
+        </fieldset>
+
+        <fieldset>
+          <legend>Chat Refinement Prompt</legend>
+          <p class="settings-note">
+            Used when refining an estimate via the AI chat. The current estimate JSON is always
+            appended automatically after this text.
+          </p>
+          <textarea id="chat_prompt" name="chat_prompt" class="prompt-textarea"
+            rows="14" spellcheck="false" placeholder="Loading…"></textarea>
+        </fieldset>
+
+        <button type="submit" id="save-btn" class="btn-primary">Save Settings</button>
+
+      </form>
+
+      <div id="settings-feedback" class="settings-feedback hidden"></div>
+    </main>
+  </div>
+
+  <script src="/static/settings.js"></script>
+</body>
+</html>

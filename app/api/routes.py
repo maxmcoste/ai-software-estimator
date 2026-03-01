@@ -12,6 +12,7 @@ from app.api.schemas import (
     SaveRequest, SaveSummary, SaveDetail,
     OpenSaveResponse, UpdateSaveRequest, JobContextResponse,
     PlanResponse, RoleEstimateSchema, PlanPhaseSchema,
+    SettingsResponse, SettingsUpdateRequest,
 )
 from app.core import estimator, saves as saves_store
 from app.core import claude_client, report_generator
@@ -19,6 +20,56 @@ from app.dependencies import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api")
+
+
+# ── Settings helpers ──────────────────────────────────────────────────────────
+
+_PROMPT_PATHS = {
+    "estimation": Path("prompts/estimation_system_prompt.txt"),
+    "chat":       Path("prompts/chat_system_prompt.txt"),
+}
+
+
+def _read_prompt(key: str) -> str:
+    """Read a prompt file; return empty string if the file is missing."""
+    path = _PROMPT_PATHS[key]
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return ""
+
+
+def _write_prompt(key: str, text: str) -> None:
+    """Write prompt text to the corresponding file."""
+    path = _PROMPT_PATHS[key]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+def _mask_key(value: str) -> str:
+    """Return last-4-chars hint, e.g. '****a1b2'. Empty string if not set."""
+    if not value:
+        return ""
+    return "****" + value[-4:]
+
+
+def _update_env(updates: dict[str, str]) -> None:
+    """Write key=value pairs into .env, adding lines if not already present."""
+    env_path = Path(".env")
+    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+    updated: set[str] = set()
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        for key, value in updates.items():
+            if stripped.startswith(f"{key}="):
+                lines[i] = f"{key}={value}"
+                updated.add(key)
+                break
+    for key, value in updates.items():
+        if key not in updated:
+            lines.append(f"{key}={value}")
+    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 @router.post("/estimate", response_model=EstimateJobResponse)
@@ -67,6 +118,7 @@ async def create_estimate(
         currency=currency,
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
+        estimation_prompt=_read_prompt("estimation"),
     )
 
     return EstimateJobResponse(job_id=job.job_id)
@@ -102,6 +154,7 @@ async def create_save(req: SaveRequest):
         report_markdown=report_md,
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
+        row_inclusions=req.row_inclusions,
     )
     return SaveSummary(**{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at")},
                        project_name=data["estimate_data"].get("project_name", ""),
@@ -130,6 +183,7 @@ async def get_save(save_id: str):
         currency=data["financials_data"]["currency"],
         roles=estimate_data.get("roles", []),
         plan_phases=estimate_data.get("plan_phases", []),
+        row_inclusions=data.get("row_inclusions", {}),
     )
 
 
@@ -211,6 +265,7 @@ async def update_save(save_id: str, req: UpdateSaveRequest):
         report_markdown=report_md,
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
+        row_inclusions=req.row_inclusions,
     )
     if data is None:
         raise HTTPException(status_code=404, detail="Save not found or already finalized")
@@ -317,6 +372,7 @@ async def rerun_estimate(
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
         cached_repo_summary=job.repo_summary,   # reuse existing GitHub analysis
+        estimation_prompt=_read_prompt("estimation"),
     )
 
     return EstimateJobResponse(job_id=job_id)
@@ -340,6 +396,7 @@ def chat(job_id: str, req: ChatRequest):
         message=req.message,
         chat_history=job.chat_history,
         current_estimate=job.estimate_result,
+        chat_prompt=_read_prompt("chat"),
     )
 
     # Append to history as plain text (current estimate is always in the system prompt)
@@ -348,6 +405,12 @@ def chat(job_id: str, req: ChatRequest):
 
     report_markdown = None
     if updated_estimate is not None:
+        # If Claude omitted roles or plan_phases, preserve the existing values
+        if not updated_estimate.roles:
+            updated_estimate.roles = job.estimate_result.roles
+        if not updated_estimate.plan_phases:
+            updated_estimate.plan_phases = job.estimate_result.plan_phases
+
         new_financials = estimator._compute_financials(
             updated_estimate,
             job.financials.manday_cost,
@@ -363,6 +426,38 @@ def chat(job_id: str, req: ChatRequest):
         report_markdown = report_path.read_text(encoding="utf-8")
 
     return ChatResponse(reply=reply, estimate_updated=updated_estimate is not None, report_markdown=report_markdown)
+
+
+@router.get("/settings", response_model=SettingsResponse)
+async def read_settings():
+    """Return masked hints for keys and full text of editable prompts."""
+    s = get_settings()
+    return SettingsResponse(
+        anthropic_api_key_set=bool(s.ANTHROPIC_API_KEY),
+        anthropic_api_key_hint=_mask_key(s.ANTHROPIC_API_KEY),
+        github_token_set=bool(s.GITHUB_TOKEN),
+        github_token_hint=_mask_key(s.GITHUB_TOKEN),
+        estimation_prompt=_read_prompt("estimation"),
+        chat_prompt=_read_prompt("chat"),
+    )
+
+
+@router.post("/settings")
+async def write_settings(req: SettingsUpdateRequest):
+    """Persist non-empty API keys to .env; always write prompt files if provided."""
+    updates: dict[str, str] = {}
+    if req.anthropic_api_key:
+        updates["ANTHROPIC_API_KEY"] = req.anthropic_api_key
+    if req.github_token:
+        updates["GITHUB_TOKEN"] = req.github_token
+    if updates:
+        _update_env(updates)
+        get_settings.cache_clear()
+    if req.estimation_prompt:
+        _write_prompt("estimation", req.estimation_prompt)
+    if req.chat_prompt:
+        _write_prompt("chat", req.chat_prompt)
+    return {"ok": True}
 
 
 @router.get("/estimate/{job_id}/report")

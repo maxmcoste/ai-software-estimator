@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Software Estimator</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -12,7 +13,8 @@
     <span class="topnav-brand">AI Estimator</span>
     <div class="topnav-links">
       <a href="/" class="topnav-link active">New Estimate</a>
-      <a href="/history" class="topnav-link">History</a>
+      <a href="/history" class="topnav-link">Estimations</a>
+      <a href="/settings" class="topnav-link">Settings</a>
     </div>
   </nav>
   <div class="container">
@@ -59,6 +61,15 @@
                 <input type="file" id="estimation_model_file" name="estimation_model_file" accept=".md,.txt,.markdown" />
               </label>
               <span id="model-file-name" class="file-name"></span>
+              <div id="model-warning" class="model-warning hidden">
+                <div class="model-warning-msg"></div>
+                <div class="model-warning-ack-wrap hidden">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="model-warning-ack" />
+                    I understand, proceed anyway
+                  </label>
+                </div>
+              </div>
             </div>
           </fieldset>
 
@@ -186,21 +197,19 @@
                 <span id="rerun-file-name" class="file-name"></span>
                 <button id="rerun-confirm-btn" class="btn-primary rerun-confirm-btn" disabled>Re-estimate</button>
               </div>
+              <div id="rerun-model-warning" class="model-warning hidden">
+                <div class="model-warning-msg"></div>
+                <div class="model-warning-ack-wrap hidden">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="rerun-model-warning-ack" />
+                    I understand, proceed anyway
+                  </label>
+                </div>
+              </div>
             </div>
 
             <div id="report-content" class="markdown-body"></div>
 
-            <!-- Team & Timeline widget -->
-            <div id="timeline-section" class="timeline-section hidden">
-              <div class="timeline-header">
-                <h3 class="timeline-title">Team &amp; Timeline</h3>
-                <div class="timeline-toggle">
-                  <button class="timeline-unit-btn active" data-unit="weeks">Weeks</button>
-                  <button class="timeline-unit-btn" data-unit="months">Months</button>
-                </div>
-              </div>
-              <div id="timeline-content" class="timeline-content"></div>
-            </div>
           </div>
 
           <!-- Right: chat -->
@@ -240,7 +249,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <script src="/static/timeline.js"></script>
+  <script src="/static/report-utils.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

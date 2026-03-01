@@ -26,7 +26,16 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 async def lifespan(app: FastAPI):
     settings = get_settings()
     if not settings.ANTHROPIC_API_KEY:
-        raise RuntimeError("ANTHROPIC_API_KEY is not set. Copy .env.example to .env and add your key.")
+        logger.warning("ANTHROPIC_API_KEY is not set — estimations will fail until configured via /settings")
+    # Purge stale report files from previous sessions (jobs are in-memory only)
+    reports_dir = settings.REPORTS_DIR
+    if reports_dir.exists():
+        removed = 0
+        for f in reports_dir.glob("*.md"):
+            f.unlink()
+            removed += 1
+        if removed:
+            logger.info("Cleaned up %d stale report file(s) from %s", removed, reports_dir)
     logger.info("Estimate app started. ANTHROPIC_API_KEY is set.")
     yield
 
@@ -45,3 +54,8 @@ async def index(request: Request):
 @app.get("/history", response_class=HTMLResponse)
 async def history(request: Request):
     return templates.TemplateResponse("history.html", {"request": request})
+
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse("settings.html", {"request": request})

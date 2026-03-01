@@ -15,6 +15,7 @@ class JobStatusResponse(BaseModel):
 class SaveRequest(BaseModel):
     job_id: str
     name: str
+    row_inclusions: dict[str, bool] = {}
 
 
 class SaveSummary(BaseModel):
@@ -60,6 +61,7 @@ class SaveDetail(SaveSummary):
     requirements_md: str
     roles: list[RoleEstimateSchema] = []
     plan_phases: list[PlanPhaseSchema] = []
+    row_inclusions: dict[str, bool] = {}
 
 
 class ChatRequest(BaseModel):
@@ -80,6 +82,7 @@ class OpenSaveResponse(BaseModel):
 
 class UpdateSaveRequest(BaseModel):
     job_id: str
+    row_inclusions: dict[str, bool] = {}
 
 
 class JobContextResponse(BaseModel):
@@ -88,3 +91,19 @@ class JobContextResponse(BaseModel):
     model_md: str
     save_id: Optional[str] = None
     save_name: Optional[str] = None
+
+
+class SettingsResponse(BaseModel):
+    anthropic_api_key_set: bool
+    anthropic_api_key_hint: str
+    github_token_set: bool
+    github_token_hint: str
+    estimation_prompt: str = ""
+    chat_prompt: str = ""
+
+
+class SettingsUpdateRequest(BaseModel):
+    anthropic_api_key: str = ""
+    github_token: str = ""
+    estimation_prompt: str = ""
+    chat_prompt: str = ""
