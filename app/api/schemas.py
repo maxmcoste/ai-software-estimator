@@ -98,8 +98,12 @@ class SettingsResponse(BaseModel):
     anthropic_api_key_hint: str
     github_token_set: bool
     github_token_hint: str
+    estimation_prompt: str = ""
+    chat_prompt: str = ""
 
 
 class SettingsUpdateRequest(BaseModel):
     anthropic_api_key: str = ""
     github_token: str = ""
+    estimation_prompt: str = ""
+    chat_prompt: str = ""

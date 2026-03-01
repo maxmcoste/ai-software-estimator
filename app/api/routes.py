@@ -24,6 +24,27 @@ router = APIRouter(prefix="/api")
 
 # ── Settings helpers ──────────────────────────────────────────────────────────
 
+_PROMPT_PATHS = {
+    "estimation": Path("prompts/estimation_system_prompt.txt"),
+    "chat":       Path("prompts/chat_system_prompt.txt"),
+}
+
+
+def _read_prompt(key: str) -> str:
+    """Read a prompt file; return empty string if the file is missing."""
+    path = _PROMPT_PATHS[key]
+    if path.exists():
+        return path.read_text(encoding="utf-8")
+    return ""
+
+
+def _write_prompt(key: str, text: str) -> None:
+    """Write prompt text to the corresponding file."""
+    path = _PROMPT_PATHS[key]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
 def _mask_key(value: str) -> str:
     """Return last-4-chars hint, e.g. '****a1b2'. Empty string if not set."""
     if not value:
@@ -33,7 +54,6 @@ def _mask_key(value: str) -> str:
 
 def _update_env(updates: dict[str, str]) -> None:
     """Write key=value pairs into .env, adding lines if not already present."""
-    from pathlib import Path
     env_path = Path(".env")
     lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
     updated: set[str] = set()
@@ -98,6 +118,7 @@ async def create_estimate(
         currency=currency,
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
+        estimation_prompt=_read_prompt("estimation"),
     )
 
     return EstimateJobResponse(job_id=job.job_id)
@@ -351,6 +372,7 @@ async def rerun_estimate(
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
         cached_repo_summary=job.repo_summary,   # reuse existing GitHub analysis
+        estimation_prompt=_read_prompt("estimation"),
     )
 
     return EstimateJobResponse(job_id=job_id)
@@ -374,6 +396,7 @@ def chat(job_id: str, req: ChatRequest):
         message=req.message,
         chat_history=job.chat_history,
         current_estimate=job.estimate_result,
+        chat_prompt=_read_prompt("chat"),
     )
 
     # Append to history as plain text (current estimate is always in the system prompt)
@@ -407,19 +430,21 @@ def chat(job_id: str, req: ChatRequest):
 
 @router.get("/settings", response_model=SettingsResponse)
 async def read_settings():
-    """Return masked hints for currently configured keys."""
+    """Return masked hints for keys and full text of editable prompts."""
     s = get_settings()
     return SettingsResponse(
         anthropic_api_key_set=bool(s.ANTHROPIC_API_KEY),
         anthropic_api_key_hint=_mask_key(s.ANTHROPIC_API_KEY),
         github_token_set=bool(s.GITHUB_TOKEN),
         github_token_hint=_mask_key(s.GITHUB_TOKEN),
+        estimation_prompt=_read_prompt("estimation"),
+        chat_prompt=_read_prompt("chat"),
     )
 
 
 @router.post("/settings")
 async def write_settings(req: SettingsUpdateRequest):
-    """Persist non-empty values to .env and reload the settings cache."""
+    """Persist non-empty API keys to .env; always write prompt files if provided."""
     updates: dict[str, str] = {}
     if req.anthropic_api_key:
         updates["ANTHROPIC_API_KEY"] = req.anthropic_api_key
@@ -428,6 +453,10 @@ async def write_settings(req: SettingsUpdateRequest):
     if updates:
         _update_env(updates)
         get_settings.cache_clear()
+    if req.estimation_prompt:
+        _write_prompt("estimation", req.estimation_prompt)
+    if req.chat_prompt:
+        _write_prompt("chat", req.chat_prompt)
     return {"ok": True}
 
 

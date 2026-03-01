@@ -30,6 +30,8 @@
       const data = await res.json();
       setHint(document.getElementById('anthropic_hint'), data.anthropic_api_key_set, data.anthropic_api_key_hint);
       setHint(document.getElementById('github_hint'),    data.github_token_set,       data.github_token_hint);
+      document.getElementById('estimation_prompt').value = data.estimation_prompt || '';
+      document.getElementById('chat_prompt').value       = data.chat_prompt       || '';
     } catch { /* ignore — hints stay blank */ }
   }
 
@@ -41,6 +43,8 @@
     const body = {
       anthropic_api_key: document.getElementById('anthropic_api_key').value,
       github_token:      document.getElementById('github_token').value,
+      estimation_prompt: document.getElementById('estimation_prompt').value,
+      chat_prompt:       document.getElementById('chat_prompt').value,
     };
 
     try {

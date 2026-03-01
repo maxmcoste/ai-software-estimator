@@ -46,6 +46,26 @@
           <p class="settings-note">Required only for private repositories. Public repos work without a token.</p>
         </fieldset>
 
+        <fieldset>
+          <legend>Estimation System Prompt</legend>
+          <p class="settings-note">
+            Injected before the estimation model as the AI's main instruction set.
+            The estimation model document is always appended automatically after this text.
+          </p>
+          <textarea id="estimation_prompt" name="estimation_prompt" class="prompt-textarea"
+            rows="16" spellcheck="false" placeholder="Loading…"></textarea>
+        </fieldset>
+
+        <fieldset>
+          <legend>Chat Refinement Prompt</legend>
+          <p class="settings-note">
+            Used when refining an estimate via the AI chat. The current estimate JSON is always
+            appended automatically after this text.
+          </p>
+          <textarea id="chat_prompt" name="chat_prompt" class="prompt-textarea"
+            rows="14" spellcheck="false" placeholder="Loading…"></textarea>
+        </fieldset>
+
         <button type="submit" id="save-btn" class="btn-primary">Save Settings</button>
 
       </form>
