@@ -29,9 +29,6 @@
   const reqEditTextarea        = document.getElementById('req-edit-textarea');
   const reqFileInput           = document.getElementById('req-file-input');
   const reqFileLoaded          = document.getElementById('req-file-loaded');
-  const timelineSection    = document.getElementById('timeline-section');
-  const timelineContent    = document.getElementById('timeline-content');
-
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -110,17 +107,6 @@
     updateRerunConfirmBtn();
   });
 
-  // Timeline unit toggle
-  document.querySelectorAll('#timeline-section .timeline-unit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!currentPlanData) return;
-      currentTimelineUnit = btn.dataset.unit;
-      document.querySelectorAll('#timeline-section .timeline-unit-btn')
-        .forEach(b => b.classList.toggle('active', b === btn));
-      TimelineWidget.render(timelineContent, currentPlanData.roles, currentPlanData.plan_phases, currentTimelineUnit);
-    });
-  });
-
   // ── State ───────────────────────────────────────────────────────────────
   let currentJobId         = null;
   let currentSaveId        = null;
@@ -131,8 +117,6 @@
   let elapsedSeconds  = 0;
   let lastLogMessage  = null;
   let rawMarkdown     = '';
-  let currentPlanData      = null;
-  let currentTimelineUnit  = 'weeks';
 
   // ── UI helpers ──────────────────────────────────────────────────────────
   function showError(msg) {
@@ -176,11 +160,6 @@
     reqFileLoaded.textContent = '';
     reqPreviewWrap.classList.remove('hidden');
     reqEditWrap.classList.add('hidden');
-    // Reset timeline
-    currentPlanData = null;
-    currentTimelineUnit = 'weeks';
-    timelineSection.classList.add('hidden');
-    timelineContent.innerHTML = '';
     // Reset save
     savePanel.classList.add('hidden');
     saveNameInput.value = '';
@@ -409,7 +388,6 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawMarkdown = await res.text();
       showResult(rawMarkdown);
-      fetchAndRenderPlan();
       // Sync requirements panel if it was modified for this re-run
       if (requirementsModified && reqEditTextarea.value.trim()) {
         rawRequirementsText = reqEditTextarea.value.trim();
@@ -430,23 +408,6 @@
       showError('Report ready but could not be loaded: ' + err.message);
       submitBtn.disabled = false;
     }
-  }
-
-  async function fetchAndRenderPlan() {
-    if (!currentJobId) return;
-    try {
-      const res = await fetch(`/api/estimate/${currentJobId}/plan`);
-      if (!res.ok) return;
-      currentPlanData = await res.json();
-      if (currentPlanData.roles.length || currentPlanData.plan_phases.length) {
-        // Reset toggle to weeks
-        currentTimelineUnit = 'weeks';
-        document.querySelectorAll('#timeline-section .timeline-unit-btn')
-          .forEach(b => b.classList.toggle('active', b.dataset.unit === 'weeks'));
-        TimelineWidget.render(timelineContent, currentPlanData.roles, currentPlanData.plan_phases, currentTimelineUnit);
-        timelineSection.classList.remove('hidden');
-      }
-    } catch { /* non-blocking */ }
   }
 
   // ── Download ─────────────────────────────────────────────────────────────
