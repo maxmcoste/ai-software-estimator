@@ -44,11 +44,14 @@
 ## Team & Roles
 
 {% if estimate.roles %}
-| Role | Mandays | Responsibilities |
-|:---|---:|:---|
+{% set _wd = (estimate.plan_phases | map(attribute='end_week') | max * 5) if estimate.plan_phases else 0 %}
+| Role | Mandays | FTE | Responsibilities |
+|:---|---:|---:|:---|
 {% for r in estimate.roles %}
-| {{ r.role }} | {{ "%.1f"|format(r.mandays) }} | {{ r.description }} |
+| {{ r.role }} | {{ "%.1f"|format(r.mandays) }} | {% if _wd > 0 %}{{ "%.2f"|format(r.mandays / _wd) }}{% else %}—{% endif %} | {{ r.description }} |
 {% endfor %}
+
+> **FTE** = average full-time equivalent over the project duration ({{ _wd }} working days). Values > 1.0 indicate more than one person is needed for that role.
 {% else %}
 *No role breakdown available.*
 {% endif %}

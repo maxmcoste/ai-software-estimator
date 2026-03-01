@@ -113,6 +113,7 @@ def run_estimation(
     reports_dir: Path,
     api_key: str,
     cached_repo_summary: str | None = None,   # skip GitHub fetch when re-running
+    estimation_prompt: str = "",
 ) -> None:
     """Synchronous estimation runner — called inside a BackgroundTasks thread."""
     from app.core import claude_client, github_client, report_generator
@@ -141,6 +142,7 @@ def run_estimation(
             model_md=model_md,
             requirements_md=requirements_md,
             repo_summary=repo_summary or None,
+            estimation_prompt=estimation_prompt,
         )
 
         # Financial post-processing

@@ -196,25 +196,8 @@ PRODUCE_ESTIMATE_TOOL = {
 }
 
 
-def build_system_prompt(model_md: str) -> str:
-    return f"""You are an expert software project estimator. \
-Follow the ESTIMATION MODEL below as the primary methodology reference.
-
-STRICT RULES (structural — always apply):
-1. Enumerate EVERY data entity that requires CRUD operations — do not bundle them.
-2. List EVERY external API integration separately with direction and complexity.
-3. Apply scalability multipliers and formulas EXACTLY as defined in the ESTIMATION MODEL below.
-4. Only activate satellites that are GENUINELY needed — justify each with a concrete reason.
-5. Flag every technology unknown or legacy integration as a SPIKE with a specific manday cost.
-6. When a GitHub codebase is provided, distinguish clearly between existing (no cost) and new components.
-7. Return ONLY the tool call — no prose outside the structured output.
-8. Use realistic manday estimates: simple CRUD entity ≈ 1–3 md; complex integration ≈ 3–8 md.
-9. Produce a complete `roles` list mapping ALL mandays from Core and active Satellites to named roles. Sum must equal grand total.
-10. Produce a `plan_phases` list as a realistic sequential weekly schedule. Mandays per role across phases must match role totals.
-
-## ESTIMATION MODEL
-
-{model_md}"""
+def build_system_prompt(model_md: str, static_prompt: str = "") -> str:
+    return f"{static_prompt.rstrip()}\n\n## ESTIMATION MODEL\n\n{model_md}"
 
 
 def build_user_prompt(requirements_md: str, repo_summary: str | None) -> str:
@@ -231,9 +214,10 @@ def call_claude(
     repo_summary: str | None = None,
     claude_model: str = "claude-opus-4-6",
     max_retries: int = 3,
+    estimation_prompt: str = "",
 ) -> EstimateResult:
     client = Anthropic(api_key=api_key)
-    system_prompt = build_system_prompt(model_md)
+    system_prompt = build_system_prompt(model_md, static_prompt=estimation_prompt)
     user_prompt = build_user_prompt(requirements_md, repo_summary)
 
     last_error: Exception | None = None
@@ -302,6 +286,7 @@ def chat_with_claude(
     chat_history: list[dict],
     current_estimate: EstimateResult,
     claude_model: str = "claude-opus-4-6",
+    chat_prompt: str = "",
 ) -> tuple[str, EstimateResult | None]:
     """
     Returns (reply_text, updated_estimate_or_None).
@@ -310,25 +295,11 @@ def chat_with_claude(
     """
     client = Anthropic(api_key=api_key)
 
-    system = f"""You are an expert software estimation assistant helping the user refine a project estimate built on the Core & Satellites model.
-
-The user may ask you to:
-- Explain any estimation choice or assumption
-- Override specific manday values for entities, integrations, or satellites
-- Add/remove data entities, API integrations, or SPIKEs
-- Activate or deactivate satellite services
-- Change the scalability tier
-
-RULES:
-- When the user requests a CHANGE: call the `produce_estimate` tool with the COMPLETE updated estimate (all fields). Recompute base_fcu_mandays and total_mandays correctly after any change.
-- When the user asks a QUESTION or wants EXPLANATION: reply with plain text — do NOT call the tool.
-- When updating the estimate, also update `roles` and `plan_phases` to reflect the changes.
-- Be concise and precise.
-
-## Current Estimate
-```json
-{current_estimate.model_dump_json(indent=2)}
-```"""
+    system = (
+        f"{chat_prompt.rstrip()}\n\n"
+        f"## Current Estimate\n"
+        f"```json\n{current_estimate.model_dump_json(indent=2)}\n```"
+    )
 
     messages = list(chat_history) + [{"role": "user", "content": message}]
 
