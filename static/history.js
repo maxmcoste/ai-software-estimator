@@ -19,9 +19,6 @@
   const confirmMsg      = document.getElementById('confirm-message');
   const confirmYes      = document.getElementById('confirm-yes');
   const confirmNo       = document.getElementById('confirm-no');
-  const detailTimeline        = document.getElementById('detail-timeline');
-  const detailTimelineContent = document.getElementById('detail-timeline-content');
-
   let currentSave = null;
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -94,31 +91,8 @@
     detailName.textContent  = data.name;
     detailDates.textContent = `Created ${fmt(data.created_at)}  ·  Last updated ${fmt(data.updated_at)}`;
     detailReport.innerHTML  = marked.parse(data.report_markdown);
-
-    // Render timeline if plan data is available
-    detailTimeline.classList.add('hidden');
-    detailTimelineContent.innerHTML = '';
-    if (data.roles && data.roles.length && data.plan_phases && data.plan_phases.length) {
-      let tlUnit = 'weeks';
-      // Reset toggle buttons
-      detailTimeline.querySelectorAll('.timeline-unit-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.unit === 'weeks');
-        // Remove old listeners by replacing each button with a clone
-        const clone = btn.cloneNode(true);
-        btn.parentNode.replaceChild(clone, btn);
-      });
-      // Add fresh listeners
-      detailTimeline.querySelectorAll('.timeline-unit-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          tlUnit = btn.dataset.unit;
-          detailTimeline.querySelectorAll('.timeline-unit-btn')
-            .forEach(b => b.classList.toggle('active', b === btn));
-          TimelineWidget.render(detailTimelineContent, data.roles, data.plan_phases, tlUnit);
-        });
-      });
-      TimelineWidget.render(detailTimelineContent, data.roles, data.plan_phases, tlUnit);
-      detailTimeline.classList.remove('hidden');
-    }
+    SatelliteAccordion.apply(detailReport);
+    CostTable.apply(detailReport, data.row_inclusions || {});
 
     const isFinal = data.status === 'final';
     detailBadge.textContent  = isFinal ? '🔒 Final' : '✏️ Draft';
@@ -137,8 +111,6 @@
     detailView.classList.add('hidden');
     listView.classList.remove('hidden');
     currentSave = null;
-    detailTimeline.classList.add('hidden');
-    detailTimelineContent.innerHTML = '';
   });
 
   // ── Change (open draft for editing) ───────────────────────────────────────

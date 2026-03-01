@@ -29,9 +29,6 @@
   const reqEditTextarea        = document.getElementById('req-edit-textarea');
   const reqFileInput           = document.getElementById('req-file-input');
   const reqFileLoaded          = document.getElementById('req-file-loaded');
-  const timelineSection    = document.getElementById('timeline-section');
-  const timelineContent    = document.getElementById('timeline-content');
-
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -110,17 +107,6 @@
     updateRerunConfirmBtn();
   });
 
-  // Timeline unit toggle
-  document.querySelectorAll('#timeline-section .timeline-unit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!currentPlanData) return;
-      currentTimelineUnit = btn.dataset.unit;
-      document.querySelectorAll('#timeline-section .timeline-unit-btn')
-        .forEach(b => b.classList.toggle('active', b === btn));
-      TimelineWidget.render(timelineContent, currentPlanData.roles, currentPlanData.plan_phases, currentTimelineUnit);
-    });
-  });
-
   // ── State ───────────────────────────────────────────────────────────────
   let currentJobId         = null;
   let currentSaveId        = null;
@@ -131,8 +117,8 @@
   let elapsedSeconds  = 0;
   let lastLogMessage  = null;
   let rawMarkdown     = '';
-  let currentPlanData      = null;
-  let currentTimelineUnit  = 'weeks';
+  let currentRowInclusions = {};
+  let _costTableHandle     = null;
 
   // ── UI helpers ──────────────────────────────────────────────────────────
   function showError(msg) {
@@ -176,11 +162,9 @@
     reqFileLoaded.textContent = '';
     reqPreviewWrap.classList.remove('hidden');
     reqEditWrap.classList.add('hidden');
-    // Reset timeline
-    currentPlanData = null;
-    currentTimelineUnit = 'weeks';
-    timelineSection.classList.add('hidden');
-    timelineContent.innerHTML = '';
+    // Reset cost table state
+    currentRowInclusions = {};
+    _costTableHandle     = null;
     // Reset save
     savePanel.classList.add('hidden');
     saveNameInput.value = '';
@@ -265,6 +249,8 @@
   function showResult(markdown) {
     progressSec.classList.add('hidden');
     reportDiv.innerHTML = marked.parse(markdown);
+    SatelliteAccordion.apply(reportDiv);
+    _costTableHandle = CostTable.apply(reportDiv, currentRowInclusions);
     resultSec.classList.remove('hidden');
     document.querySelector('.container').classList.add('wide');
   }
@@ -409,7 +395,6 @@
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawMarkdown = await res.text();
       showResult(rawMarkdown);
-      fetchAndRenderPlan();
       // Sync requirements panel if it was modified for this re-run
       if (requirementsModified && reqEditTextarea.value.trim()) {
         rawRequirementsText = reqEditTextarea.value.trim();
@@ -430,23 +415,6 @@
       showError('Report ready but could not be loaded: ' + err.message);
       submitBtn.disabled = false;
     }
-  }
-
-  async function fetchAndRenderPlan() {
-    if (!currentJobId) return;
-    try {
-      const res = await fetch(`/api/estimate/${currentJobId}/plan`);
-      if (!res.ok) return;
-      currentPlanData = await res.json();
-      if (currentPlanData.roles.length || currentPlanData.plan_phases.length) {
-        // Reset toggle to weeks
-        currentTimelineUnit = 'weeks';
-        document.querySelectorAll('#timeline-section .timeline-unit-btn')
-          .forEach(b => b.classList.toggle('active', b.dataset.unit === 'weeks'));
-        TimelineWidget.render(timelineContent, currentPlanData.roles, currentPlanData.plan_phases, currentTimelineUnit);
-        timelineSection.classList.remove('hidden');
-      }
-    } catch { /* non-blocking */ }
   }
 
   // ── Download ─────────────────────────────────────────────────────────────
@@ -484,7 +452,7 @@
       const res = await fetch('/api/saves', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: currentJobId, name }),
+        body: JSON.stringify({ job_id: currentJobId, name, row_inclusions: _costTableHandle ? _costTableHandle.getInclusions() : {} }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -515,7 +483,7 @@
       const res = await fetch(`/api/saves/${currentSaveId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ job_id: currentJobId }),
+        body: JSON.stringify({ job_id: currentJobId, row_inclusions: _costTableHandle ? _costTableHandle.getInclusions() : {} }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -668,7 +636,10 @@
       appendChatBubble(data.reply, 'assistant', data.estimate_updated);
 
       if (data.estimate_updated && data.report_markdown) {
+        if (_costTableHandle) currentRowInclusions = _costTableHandle.getInclusions();
         reportDiv.innerHTML = marked.parse(data.report_markdown);
+        SatelliteAccordion.apply(reportDiv);
+        _costTableHandle = CostTable.apply(reportDiv, currentRowInclusions);
         reportDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // Re-enable "Update draft" so the user can sync the change
         if (currentSaveId) {
@@ -721,6 +692,13 @@
       // Update Save button to "Update draft"
       if (currentSaveId) {
         saveBtn.textContent = 'Update draft';
+        try {
+          const saveRes = await fetch(`/api/saves/${currentSaveId}`);
+          if (saveRes.ok) {
+            const saveData = await saveRes.json();
+            currentRowInclusions = saveData.row_inclusions || {};
+          }
+        } catch { /* ignore, use all-checked defaults */ }
       }
 
       // Fetch and display the report

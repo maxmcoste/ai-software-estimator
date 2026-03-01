@@ -19,6 +19,7 @@ def create_save(
     report_markdown: str,
     estimate_data: dict,
     financials_data: dict,
+    row_inclusions: dict = None,
 ) -> dict:
     SAVES_DIR.mkdir(exist_ok=True)
     save_id = str(uuid.uuid4())
@@ -34,6 +35,7 @@ def create_save(
         "report_markdown": report_markdown,
         "estimate_data": estimate_data,
         "financials_data": financials_data,
+        "row_inclusions": row_inclusions or {},
     }
     _path(save_id).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return data
@@ -80,7 +82,7 @@ def finalize_save(save_id: str) -> Optional[dict]:
     return data
 
 
-def update_save(save_id: str, report_markdown: str, estimate_data: dict, financials_data: dict) -> Optional[dict]:
+def update_save(save_id: str, report_markdown: str, estimate_data: dict, financials_data: dict, row_inclusions: dict = None) -> Optional[dict]:
     """Update an existing draft save. Returns None if not found or finalized."""
     data = get_save(save_id)
     if data is None or data["status"] == "final":
@@ -88,6 +90,7 @@ def update_save(save_id: str, report_markdown: str, estimate_data: dict, financi
     data["report_markdown"] = report_markdown
     data["estimate_data"] = estimate_data
     data["financials_data"] = financials_data
+    data["row_inclusions"] = row_inclusions if row_inclusions is not None else data.get("row_inclusions", {})
     data["updated_at"] = datetime.now(timezone.utc).isoformat()
     _path(save_id).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return data
