@@ -322,7 +322,7 @@ The user may ask you to:
 RULES:
 - When the user requests a CHANGE: call the `produce_estimate` tool with the COMPLETE updated estimate (all fields). Recompute base_fcu_mandays and total_mandays correctly after any change.
 - When the user asks a QUESTION or wants EXPLANATION: reply with plain text — do NOT call the tool.
-- When updating the estimate, also update `roles` and `plan_phases` to reflect the changes.
+- `roles` and `plan_phases` MUST always be present and non-empty in every tool call. If the change does not affect them, copy them verbatim from the current estimate. Never return empty arrays for these fields.
 - Be concise and precise.
 
 ## Current Estimate

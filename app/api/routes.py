@@ -382,6 +382,12 @@ def chat(job_id: str, req: ChatRequest):
 
     report_markdown = None
     if updated_estimate is not None:
+        # If Claude omitted roles or plan_phases, preserve the existing values
+        if not updated_estimate.roles:
+            updated_estimate.roles = job.estimate_result.roles
+        if not updated_estimate.plan_phases:
+            updated_estimate.plan_phases = job.estimate_result.plan_phases
+
         new_financials = estimator._compute_financials(
             updated_estimate,
             job.financials.manday_cost,
