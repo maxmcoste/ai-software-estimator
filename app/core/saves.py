@@ -20,6 +20,8 @@ def create_save(
     estimate_data: dict,
     financials_data: dict,
     row_inclusions: dict = None,
+    estimation_prompt_override: str = "",
+    chat_prompt_override: str = "",
 ) -> dict:
     SAVES_DIR.mkdir(exist_ok=True)
     save_id = str(uuid.uuid4())
@@ -36,6 +38,8 @@ def create_save(
         "estimate_data": estimate_data,
         "financials_data": financials_data,
         "row_inclusions": row_inclusions or {},
+        "estimation_prompt_override": estimation_prompt_override,
+        "chat_prompt_override": chat_prompt_override,
     }
     _path(save_id).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     return data

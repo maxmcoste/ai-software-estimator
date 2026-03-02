@@ -104,6 +104,17 @@
             </div>
           </fieldset>
 
+          <details class="advanced-panel" id="advanced-estimation">
+            <summary class="advanced-summary">Advanced options</summary>
+            <div class="advanced-body">
+              <label for="estimation_prompt_override" class="advanced-label">
+                Estimation system prompt <span class="advanced-hint">(overrides global default)</span>
+              </label>
+              <textarea id="estimation_prompt_override" class="prompt-textarea advanced-prompt"
+                rows="10" spellcheck="false" placeholder="Loading default…"></textarea>
+            </div>
+          </details>
+
           <button type="submit" id="submit-btn" class="btn-primary">Generate Estimate</button>
         </form>
       </section>
@@ -219,6 +230,16 @@
                 <span class="chat-title">Refine with AI</span>
                 <span class="chat-hint">Ask Claude to explain or adjust any part of the estimate</span>
               </div>
+              <details class="advanced-panel advanced-panel--chat" id="advanced-chat">
+                <summary class="advanced-summary">Chat system prompt</summary>
+                <div class="advanced-body">
+                  <label for="chat_prompt_override" class="advanced-label">
+                    Chat system prompt <span class="advanced-hint">(overrides global default)</span>
+                  </label>
+                  <textarea id="chat_prompt_override" class="prompt-textarea advanced-prompt"
+                    rows="8" spellcheck="false" placeholder="Loading default…"></textarea>
+                </div>
+              </details>
               <div id="chat-messages" class="chat-messages">
                 <div class="chat-bubble assistant">
                   Hi! I can explain any reasoning behind this estimate, or help you adjust specific values. What would you like to change?

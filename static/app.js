@@ -33,6 +33,8 @@
   const modelWarningAck        = document.getElementById('model-warning-ack');
   const rerunModelWarning      = document.getElementById('rerun-model-warning');
   const rerunModelWarningAck   = document.getElementById('rerun-model-warning-ack');
+  const estimationPromptOverride = document.getElementById('estimation_prompt_override');
+  const chatPromptOverride       = document.getElementById('chat_prompt_override');
   // Tab switcher
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -155,6 +157,18 @@
     updateRerunConfirmBtn();
   });
 
+  // ── Prompt defaults pre-fill ─────────────────────────────────────────────
+  async function prefillPromptDefaults() {
+    try {
+      const res = await fetch('/api/settings');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (estimationPromptOverride) estimationPromptOverride.value = data.estimation_prompt || '';
+      if (chatPromptOverride)       chatPromptOverride.value       = data.chat_prompt       || '';
+    } catch { /* non-fatal */ }
+  }
+  prefillPromptDefaults();
+
   // ── State ───────────────────────────────────────────────────────────────
   let currentJobId         = null;
   let currentSaveId        = null;
@@ -228,6 +242,10 @@
     rerunFileName.textContent = '';
     rerunConfirmBtn.disabled = true;
     rerunToggleBtn.disabled  = false;
+    // Reset prompt overrides
+    if (estimationPromptOverride) estimationPromptOverride.value = '';
+    if (chatPromptOverride)       chatPromptOverride.value       = '';
+    prefillPromptDefaults();
     // Reset chat
     const chatMessages = document.getElementById('chat-messages');
     chatMessages.innerHTML = '<div class="chat-bubble assistant">Hi! I can explain any reasoning behind this estimate, or help you adjust specific values. What would you like to change?</div>';
@@ -362,6 +380,9 @@
     if (githubToken) fd.append('github_token', githubToken);
     fd.append('manday_cost', mandayCost);
     fd.append('currency',    currency);
+
+    const estPrompt = estimationPromptOverride?.value.trim() || '';
+    if (estPrompt) fd.append('estimation_prompt_override', estPrompt);
 
     const xhr = new XMLHttpRequest();
     let uploadTransitioned = false;
@@ -701,7 +722,7 @@
       const res = await fetch(`/api/estimate/${currentJobId}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, chat_prompt_override: chatPromptOverride?.value.trim() || '' }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -774,6 +795,10 @@
           if (saveRes.ok) {
             const saveData = await saveRes.json();
             currentRowInclusions = saveData.row_inclusions || {};
+            if (estimationPromptOverride && saveData.estimation_prompt_override)
+              estimationPromptOverride.value = saveData.estimation_prompt_override;
+            if (chatPromptOverride && saveData.chat_prompt_override)
+              chatPromptOverride.value = saveData.chat_prompt_override;
           }
         } catch { /* ignore, use all-checked defaults */ }
       }

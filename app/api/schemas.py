@@ -62,10 +62,13 @@ class SaveDetail(SaveSummary):
     roles: list[RoleEstimateSchema] = []
     plan_phases: list[PlanPhaseSchema] = []
     row_inclusions: dict[str, bool] = {}
+    estimation_prompt_override: str = ""
+    chat_prompt_override: str = ""
 
 
 class ChatRequest(BaseModel):
     message: str
+    chat_prompt_override: str = ""
 
 
 class ChatResponse(BaseModel):
@@ -78,6 +81,8 @@ class OpenSaveResponse(BaseModel):
     job_id: str
     save_id: str
     name: str
+    estimation_prompt_override: str = ""
+    chat_prompt_override: str = ""
 
 
 class UpdateSaveRequest(BaseModel):

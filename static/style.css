@@ -1080,5 +1080,48 @@ details.satellite-section[open] > summary {
   opacity: 1;
 }
 
+/* ── Per-estimation prompt override panels ────────────────────────────────── */
+.advanced-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-top: 1rem;
+}
+.advanced-summary {
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+  list-style: none;
+}
+.advanced-summary::-webkit-details-marker { display: none; }
+.advanced-summary::after {
+  content: ' ▶';
+  font-size: 0.7rem;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+details.advanced-panel[open] > .advanced-summary::after { transform: rotate(90deg); }
+.advanced-body {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.advanced-label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+.advanced-hint { font-style: italic; font-size: 0.78rem; }
+.advanced-prompt { height: 160px; }
+/* Chat panel variant — flush inside the panel */
+.advanced-panel--chat {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  margin-top: 0;
+}
+
 /* ── Utilities ────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
