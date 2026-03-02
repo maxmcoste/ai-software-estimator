@@ -82,6 +82,7 @@ async def create_estimate(
     github_token: Annotated[str, Form()] = "",
     manday_cost: Annotated[float, Form()] = 500.0,
     currency: Annotated[str, Form()] = "EUR",
+    estimation_prompt_override: Annotated[str, Form()] = "",
 ):
     settings = get_settings()
 
@@ -107,6 +108,9 @@ async def create_estimate(
 
     job = estimator.create_job()
 
+    effective_estimation_prompt = estimation_prompt_override.strip() or _read_prompt("estimation")
+    estimator.update_job(job.job_id, estimation_prompt_override=estimation_prompt_override.strip())
+
     background_tasks.add_task(
         estimator.run_estimation,
         job_id=job.job_id,
@@ -118,7 +122,7 @@ async def create_estimate(
         currency=currency,
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
-        estimation_prompt=_read_prompt("estimation"),
+        estimation_prompt=effective_estimation_prompt,
     )
 
     return EstimateJobResponse(job_id=job.job_id)
@@ -155,6 +159,8 @@ async def create_save(req: SaveRequest):
         estimate_data=job.estimate_result.model_dump(),
         financials_data=job.financials.model_dump(),
         row_inclusions=req.row_inclusions,
+        estimation_prompt_override=job.estimation_prompt_override,
+        chat_prompt_override=job.chat_prompt_override,
     )
     return SaveSummary(**{k: data[k] for k in ("save_id", "name", "status", "created_at", "updated_at")},
                        project_name=data["estimate_data"].get("project_name", ""),
@@ -184,6 +190,8 @@ async def get_save(save_id: str):
         roles=estimate_data.get("roles", []),
         plan_phases=estimate_data.get("plan_phases", []),
         row_inclusions=data.get("row_inclusions", {}),
+        estimation_prompt_override=data.get("estimation_prompt_override", ""),
+        chat_prompt_override=data.get("chat_prompt_override", ""),
     )
 
 
@@ -243,9 +251,17 @@ async def open_save(save_id: str):
         requirements_md=data.get("requirements_md", ""),
         model_md=data.get("model_md", ""),
         save_id=save_id,
+        estimation_prompt_override=data.get("estimation_prompt_override", ""),
+        chat_prompt_override=data.get("chat_prompt_override", ""),
     )
 
-    return OpenSaveResponse(job_id=job.job_id, save_id=save_id, name=data["name"])
+    return OpenSaveResponse(
+        job_id=job.job_id,
+        save_id=save_id,
+        name=data["name"],
+        estimation_prompt_override=data.get("estimation_prompt_override", ""),
+        chat_prompt_override=data.get("chat_prompt_override", ""),
+    )
 
 
 @router.put("/saves/{save_id}", response_model=SaveSummary)
@@ -372,7 +388,7 @@ async def rerun_estimate(
         reports_dir=settings.REPORTS_DIR,
         api_key=settings.ANTHROPIC_API_KEY,
         cached_repo_summary=job.repo_summary,   # reuse existing GitHub analysis
-        estimation_prompt=_read_prompt("estimation"),
+        estimation_prompt=job.estimation_prompt_override or _read_prompt("estimation"),
     )
 
     return EstimateJobResponse(job_id=job_id)
@@ -391,12 +407,20 @@ def chat(job_id: str, req: ChatRequest):
 
     settings = get_settings()
 
+    effective_chat_prompt = (
+        req.chat_prompt_override.strip()
+        or job.chat_prompt_override
+        or _read_prompt("chat")
+    )
+    if req.chat_prompt_override.strip():
+        estimator.update_job(job_id, chat_prompt_override=req.chat_prompt_override.strip())
+
     reply, updated_estimate = claude_client.chat_with_claude(
         api_key=settings.ANTHROPIC_API_KEY,
         message=req.message,
         chat_history=job.chat_history,
         current_estimate=job.estimate_result,
-        chat_prompt=_read_prompt("chat"),
+        chat_prompt=effective_chat_prompt,
     )
 
     # Append to history as plain text (current estimate is always in the system prompt)

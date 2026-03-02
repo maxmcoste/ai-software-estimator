@@ -29,6 +29,8 @@ class Job:
     repo_summary: Optional[str] = None
     chat_history: list = field(default_factory=list)
     save_id: Optional[str] = None        # set when job is restored from a saved estimate
+    estimation_prompt_override: str = ""
+    chat_prompt_override: str = ""
 
 
 def create_job() -> Job:
